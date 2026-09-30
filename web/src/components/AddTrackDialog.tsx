@@ -24,6 +24,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const previewRequest = useRef(0);
 
   useEffect(() => {
     if (open && !dialogRef.current?.open) dialogRef.current?.showModal();
@@ -31,6 +32,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
   }, [open]);
 
   useEffect(() => {
+    previewRequest.current += 1;
     if (!open) return;
     setUrl('');
     setTitle('');
@@ -39,24 +41,42 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setPlacement('tail');
     setIndex((playlist?.trackCount ?? 0) + 1);
     setResolved(null);
+    setLoadingPreview(false);
     setError(null);
   }, [open, playlist?.id, playlist?.trackCount]);
 
+  function invalidatePreview(): void {
+    previewRequest.current += 1;
+    setLoadingPreview(false);
+    setResolved(null);
+    setError(null);
+  }
+
+  function close(): void {
+    invalidatePreview();
+    onClose();
+  }
+
   async function preview(): Promise<void> {
+    const requestId = ++previewRequest.current;
+    const requestedUrl = url;
+    const requestedAllowExtensionless = allowExtensionless;
     setLoadingPreview(true);
     setResolved(null);
     setError(null);
     try {
-      const result = await api.resolve(url, allowExtensionless);
+      const result = await api.resolve(requestedUrl, requestedAllowExtensionless);
+      if (previewRequest.current !== requestId) return;
       setResolved(result);
       setTitle(result.title);
       setArtist(result.artist ?? '');
     } catch (previewError) {
+      if (previewRequest.current !== requestId) return;
       setError(
         previewError instanceof Error ? previewError.message : 'No se pudo revisar el enlace.',
       );
     } finally {
-      setLoadingPreview(false);
+      if (previewRequest.current === requestId) setLoadingPreview(false);
     }
   }
 
@@ -101,7 +121,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
       aria-labelledby="add-track-title"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        close();
       }}
     >
       <form onSubmit={(event) => void submit(event)}>
@@ -110,7 +130,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
             <h2 id="add-track-title">Agregar una pista</h2>
             <p className="dialog-intro">La música se reproduce desde su fuente original.</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar">
+          <button className="icon-button" type="button" onClick={close} aria-label="Cerrar">
             <Icon name="close" />
           </button>
         </div>
@@ -128,7 +148,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
             value={url}
             onChange={(event) => {
               setUrl(event.target.value);
-              setResolved(null);
+              invalidatePreview();
             }}
             placeholder="Pega aquí el enlace"
             aria-describedby="source-help"
@@ -151,7 +171,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
             checked={allowExtensionless}
             onChange={(event) => {
               setAllowExtensionless(event.target.checked);
-              setResolved(null);
+              invalidatePreview();
             }}
           />
           <span>El enlace de audio no tiene extensión de archivo</span>

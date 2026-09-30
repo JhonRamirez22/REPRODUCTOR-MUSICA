@@ -58,7 +58,12 @@ function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [mobileViewport, setMobileViewport] = useState(
+    () => window.matchMedia('(max-width: 940px)').matches,
+  );
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const queueTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileExpandButtonRef = useRef<HTMLButtonElement>(null);
   const mobileCollapseButtonRef = useRef<HTMLButtonElement>(null);
   const playlistLoadVersion = useRef(0);
@@ -66,6 +71,7 @@ function App() {
   const player = usePlayer(tracks, playerContainerRef);
   const playerRef = useRef(player);
   const mobilePlayerExpandedRef = useRef(mobilePlayerExpanded);
+  const previousMobilePanels = useRef({ nav: false, queue: false });
   playerRef.current = player;
   mobilePlayerExpandedRef.current = mobilePlayerExpanded;
 
@@ -116,6 +122,19 @@ function App() {
   useEffect(() => {
     void loadPlaylists();
   }, [loadPlaylists]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 940px)');
+    const updateViewport = (): void => setMobileViewport(mediaQuery.matches);
+    mediaQuery.addEventListener('change', updateViewport);
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (mobileViewport) return;
+    setMobileNavOpen(false);
+    setQueueOpen(false);
+  }, [mobileViewport]);
 
   const applyPlaylist = useCallback((playlist: Playlist) => {
     setActivePlaylist(playlist);
@@ -257,12 +276,20 @@ function App() {
     (mobilePlayerExpanded ? mobileCollapseButtonRef : mobileExpandButtonRef).current?.focus();
   }, [mobilePlayerExpanded]);
 
+  useEffect(() => {
+    const previous = previousMobilePanels.current;
+    if (previous.nav && !mobileNavOpen) mobileNavTriggerRef.current?.focus();
+    if (previous.queue && !queueOpen) queueTriggerRef.current?.focus();
+    previousMobilePanels.current = { nav: mobileNavOpen, queue: queueOpen };
+  }, [mobileNavOpen, queueOpen]);
+
   const selectedPlaylistId = activePlaylist?.id ?? null;
 
   return (
     <div className="app-shell">
       <PlaylistSidebar
         open={mobileNavOpen}
+        mobileViewport={mobileViewport}
         playlists={playlists}
         selectedId={selectedPlaylistId}
         loading={playlistsLoading}
@@ -275,6 +302,7 @@ function App() {
         onRename={(playlist) => setNameDialog({ mode: 'rename', playlist })}
         onDelete={(playlist) => void deletePlaylist(playlist)}
         onRetry={() => void loadPlaylists()}
+        onClose={() => setMobileNavOpen(false)}
       />
 
       {mobileNavOpen && (
@@ -296,10 +324,13 @@ function App() {
 
       <div className="mobile-topbar">
         <button
+          ref={mobileNavTriggerRef}
           className="icon-button"
           type="button"
           onClick={() => setMobileNavOpen(true)}
           aria-label="Abrir playlists"
+          aria-expanded={mobileNavOpen}
+          aria-controls="playlist-sidebar"
         >
           <Icon name="menu" />
         </button>
@@ -307,11 +338,13 @@ function App() {
           <Icon name="brand" size={18} /> Reproductor
         </span>
         <button
+          ref={queueTriggerRef}
           className="icon-button"
           type="button"
           onClick={() => setQueueOpen(true)}
           aria-label="Abrir cola"
           aria-expanded={queueOpen}
+          aria-controls="queue-panel"
         >
           <Icon name="music" />
         </button>
@@ -338,9 +371,9 @@ function App() {
           currentTrackId={player.currentTrack?.id ?? null}
           unavailableIds={player.unavailableIds}
           open={queueOpen}
+          mobileViewport={mobileViewport}
           onClose={() => setQueueOpen(false)}
           onAdd={() => {
-            setQueueOpen(false);
             setAddTrackOpen(true);
           }}
           onPlay={player.playTrack}

@@ -96,6 +96,16 @@ dialog:focus-visible {
   text-decoration: none;
 }
 
+.sidebar-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-close {
+  display: none;
+}
+
 .brand-mark {
   display: grid;
   width: 38px;
@@ -1258,11 +1268,20 @@ input[type='range']:disabled {
     width: min(320px, calc(100vw - 48px));
     padding-top: max(24px, env(safe-area-inset-top));
     transform: translateX(-102%);
-    transition: transform 220ms ease;
+    visibility: hidden;
+    transition:
+      transform 220ms ease,
+      visibility 0s linear 220ms;
   }
 
   .sidebar.mobile-open {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 220ms ease;
+  }
+
+  .sidebar-close {
+    display: inline-grid;
   }
 
   .mobile-scrim,
@@ -1359,11 +1378,16 @@ input[type='range']:disabled {
     border-radius: 18px 18px 0 0;
     background: var(--surface);
     transform: translateY(102%);
-    transition: transform 240ms ease;
+    visibility: hidden;
+    transition:
+      transform 240ms ease,
+      visibility 0s linear 240ms;
   }
 
   .queue-panel.is-open {
     transform: translateY(0);
+    visibility: visible;
+    transition: transform 240ms ease;
   }
 
   .queue-heading {
@@ -1394,6 +1418,8 @@ input[type='range']:disabled {
   .queue-actions .icon-button {
     width: 44px;
     min-width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
 
   .queue-item {
@@ -1528,8 +1554,10 @@ input[type='range']:disabled {
 
   .control-secondary,
   .control-main {
-    width: 42px;
-    min-width: 42px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
   }
 
   .play-button {

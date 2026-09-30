@@ -1,8 +1,11 @@
+import { useEffect, useRef } from 'react';
 import type { PlaylistSummary } from '@reproductor/shared';
 import { Icon } from './Icon.js';
+import { focusMobilePanel, trapMobilePanelFocus } from './mobile-panel.js';
 
 interface PlaylistSidebarProps {
   open: boolean;
+  mobileViewport: boolean;
   playlists: PlaylistSummary[];
   selectedId: string | null;
   loading: boolean;
@@ -12,10 +15,12 @@ interface PlaylistSidebarProps {
   onRename: (playlist: PlaylistSummary) => void;
   onDelete: (playlist: PlaylistSummary) => void;
   onRetry: () => void;
+  onClose: () => void;
 }
 
 export function PlaylistSidebar({
   open,
+  mobileViewport,
   playlists,
   selectedId,
   loading,
@@ -25,15 +30,49 @@ export function PlaylistSidebar({
   onRename,
   onDelete,
   onRetry,
+  onClose,
 }: PlaylistSidebarProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (open && mobileViewport && panelRef.current) focusMobilePanel(panelRef.current);
+  }, [mobileViewport, open]);
+
   return (
-    <aside className={`sidebar${open ? ' mobile-open' : ''}`} aria-label="Navegación de playlists">
-      <a className="brand" href="#inicio" aria-label="Reproductor, inicio">
-        <span className="brand-mark">
-          <Icon name="brand" size={23} />
-        </span>
-        <span>Reproductor</span>
-      </a>
+    <aside
+      ref={panelRef}
+      id="playlist-sidebar"
+      className={`sidebar${open ? ' mobile-open' : ''}`}
+      aria-label="Navegación de playlists"
+      aria-hidden={mobileViewport && !open ? true : undefined}
+      aria-modal={mobileViewport && open ? true : undefined}
+      inert={mobileViewport && !open ? true : undefined}
+      role={mobileViewport && open ? 'dialog' : undefined}
+      tabIndex={mobileViewport && open ? -1 : undefined}
+      onKeyDown={(event) => {
+        if (mobileViewport && open && panelRef.current)
+          trapMobilePanelFocus(event, panelRef.current, onClose);
+      }}
+    >
+      <div className="sidebar-topline">
+        <a className="brand" href="#inicio" aria-label="Reproductor, inicio">
+          <span className="brand-mark">
+            <Icon name="brand" size={23} />
+          </span>
+          <span>Reproductor</span>
+        </a>
+        <button
+          ref={closeButtonRef}
+          className="icon-button sidebar-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar navegación"
+          data-panel-initial-focus
+        >
+          <Icon name="close" />
+        </button>
+      </div>
 
       <div className="sidebar-section-heading">
         <h2>Tus playlists</h2>

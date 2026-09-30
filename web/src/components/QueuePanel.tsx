@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react';
 import type { Track } from '@reproductor/shared';
 import { Icon } from './Icon.js';
 import { formatTime } from './PlayerControls.js';
+import { focusMobilePanel, trapMobilePanelFocus } from './mobile-panel.js';
 
 interface QueuePanelProps {
   playlistName: string | null;
@@ -8,6 +10,7 @@ interface QueuePanelProps {
   currentTrackId: string | null;
   unavailableIds: ReadonlySet<string>;
   open: boolean;
+  mobileViewport: boolean;
   onClose: () => void;
   onAdd: () => void;
   onPlay: (id: string) => void;
@@ -21,14 +24,36 @@ export function QueuePanel({
   currentTrackId,
   unavailableIds,
   open,
+  mobileViewport,
   onClose,
   onAdd,
   onPlay,
   onMove,
   onRemove,
 }: QueuePanelProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (open && mobileViewport && panelRef.current) focusMobilePanel(panelRef.current);
+  }, [mobileViewport, open]);
+
   return (
-    <aside className={`queue-panel${open ? ' is-open' : ''}`} aria-label="Cola de reproducción">
+    <aside
+      ref={panelRef}
+      id="queue-panel"
+      className={`queue-panel${open ? ' is-open' : ''}`}
+      aria-label="Cola de reproducción"
+      aria-hidden={mobileViewport && !open ? true : undefined}
+      aria-modal={mobileViewport && open ? true : undefined}
+      inert={mobileViewport && !open ? true : undefined}
+      role={mobileViewport && open ? 'dialog' : undefined}
+      tabIndex={mobileViewport && open ? -1 : undefined}
+      onKeyDown={(event) => {
+        if (mobileViewport && open && panelRef.current)
+          trapMobilePanelFocus(event, panelRef.current, onClose);
+      }}
+    >
       <header className="queue-heading">
         <div>
           <h2>Cola de reproducción</h2>
@@ -38,10 +63,12 @@ export function QueuePanel({
           </p>
         </div>
         <button
+          ref={closeButtonRef}
           className="icon-button queue-close"
           type="button"
           onClick={onClose}
           aria-label="Cerrar cola"
+          data-panel-initial-focus
         >
           <Icon name="close" />
         </button>

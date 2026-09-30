@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Playlist } from '@reproductor/shared';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Playlist, ResolvedTrackSource } from '@reproductor/shared';
 import { api } from '../api/client.js';
 import { AddTrackDialog } from './AddTrackDialog.js';
 
@@ -17,6 +17,14 @@ const playlist: Playlist = {
   tracks: [],
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((accept) => {
+    resolve = accept;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
@@ -31,6 +39,8 @@ beforeEach(() => {
     },
   });
 });
+
+afterEach(cleanup);
 
 describe('AddTrackDialog', () => {
   it('previews a user link, edits its title, and adds at the chosen position', async () => {
@@ -60,6 +70,49 @@ describe('AddTrackDialog', () => {
         expectedRevision: 2,
         at: { mode: 'index', index: 1 },
       }),
+    );
+  });
+
+  it('ignores a preview response after the source URL changes', async () => {
+    const oldUrl = 'https://cdn.example.org/old-track.mp3';
+    const newUrl = 'https://cdn.example.org/new-track.mp3';
+    const oldPreview = deferred<ResolvedTrackSource>();
+    const freshPreview: ResolvedTrackSource = {
+      provider: 'audio',
+      sourceId: newUrl,
+      sourceUrl: newUrl,
+      title: 'Pista nueva',
+    };
+    vi.mocked(api.resolve)
+      .mockReturnValueOnce(oldPreview.promise)
+      .mockResolvedValueOnce(freshPreview);
+    const onAdd = vi.fn(async () => undefined);
+    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={onAdd} />);
+
+    const urlInput = screen.getByLabelText('Enlace de YouTube o audio directo');
+    fireEvent.change(urlInput, { target: { value: oldUrl } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
+    fireEvent.change(urlInput, { target: { value: newUrl } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
+
+    await waitFor(() =>
+      expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Pista nueva'),
+    );
+    oldPreview.resolve({
+      provider: 'audio',
+      sourceId: oldUrl,
+      sourceUrl: oldUrl,
+      title: 'Pista anterior',
+    });
+
+    await waitFor(() =>
+      expect((screen.getByLabelText('Título') as HTMLInputElement).value).toBe('Pista nueva'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar a la playlist' }));
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ url: newUrl, resolved: freshPreview }),
     );
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { QueuePanel } from './QueuePanel.js';
 
@@ -24,6 +24,8 @@ const otherTrack: Track = {
   position: 0,
 };
 
+afterEach(cleanup);
+
 describe('QueuePanel', () => {
   it('renders the queue and exposes accessible play, move, and remove actions', () => {
     const onPlay = vi.fn();
@@ -36,6 +38,7 @@ describe('QueuePanel', () => {
         currentTrackId={track.id}
         unavailableIds={new Set()}
         open={false}
+        mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
         onPlay={onPlay}
@@ -51,5 +54,54 @@ describe('QueuePanel', () => {
     expect(onPlay).toHaveBeenCalledWith(track.id);
     expect(onMove).toHaveBeenCalledWith(track, 0);
     expect(onRemove).toHaveBeenCalledWith(track);
+  });
+
+  it('hides a closed mobile queue and traps focus while it is open', () => {
+    const onClose = vi.fn();
+    const { container, rerender } = render(
+      <QueuePanel
+        playlistName="Lista personal"
+        tracks={[track]}
+        currentTrackId={track.id}
+        unavailableIds={new Set()}
+        open={false}
+        mobileViewport
+        onClose={onClose}
+        onAdd={() => undefined}
+        onPlay={() => undefined}
+        onMove={() => undefined}
+        onRemove={() => undefined}
+      />,
+    );
+
+    const panel = container.querySelector('#queue-panel');
+    expect(panel?.getAttribute('aria-hidden')).toBe('true');
+    expect(panel?.hasAttribute('inert')).toBe(true);
+
+    rerender(
+      <QueuePanel
+        playlistName="Lista personal"
+        tracks={[track]}
+        currentTrackId={track.id}
+        unavailableIds={new Set()}
+        open
+        mobileViewport
+        onClose={onClose}
+        onAdd={() => undefined}
+        onPlay={() => undefined}
+        onMove={() => undefined}
+        onRemove={() => undefined}
+      />,
+    );
+
+    const closeButton = screen.getByRole('button', { name: 'Cerrar cola' });
+    const addButton = screen.getByRole('button', { name: 'Agregar una pista' });
+    expect(document.activeElement).toBe(closeButton);
+    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(addButton);
+    fireEvent.keyDown(addButton, { key: 'Tab' });
+    expect(document.activeElement).toBe(closeButton);
+    fireEvent.keyDown(closeButton, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
