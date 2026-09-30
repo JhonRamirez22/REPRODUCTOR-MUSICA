@@ -6,6 +6,7 @@ import { focusMobilePanel, trapMobilePanelFocus } from './mobile-panel.js';
 
 interface QueuePanelProps {
   playlistName: string | null;
+  hasPlaylists: boolean;
   tracks: readonly Track[];
   currentTrackId: string | null;
   unavailableIds: ReadonlySet<string>;
@@ -13,6 +14,7 @@ interface QueuePanelProps {
   mobileViewport: boolean;
   onClose: () => void;
   onAdd: () => void;
+  onCreatePlaylist: () => void;
   onPlay: (id: string) => void;
   onMove: (track: Track, toIndex: number) => void;
   onRemove: (track: Track) => void;
@@ -20,6 +22,7 @@ interface QueuePanelProps {
 
 export function QueuePanel({
   playlistName,
+  hasPlaylists,
   tracks,
   currentTrackId,
   unavailableIds,
@@ -27,6 +30,7 @@ export function QueuePanel({
   mobileViewport,
   onClose,
   onAdd,
+  onCreatePlaylist,
   onPlay,
   onMove,
   onRemove,
@@ -58,7 +62,7 @@ export function QueuePanel({
         <div>
           <h2>Cola de reproducción</h2>
           <p>
-            {playlistName ?? 'Elige una playlist'}
+            {playlistName ?? (hasPlaylists ? 'Elige una playlist' : 'Sin playlists')}
             {playlistName ? ` · ${tracks.length} ${tracks.length === 1 ? 'pista' : 'pistas'}` : ''}
           </p>
         </div>
@@ -76,7 +80,16 @@ export function QueuePanel({
 
       {!playlistName ? (
         <div className="queue-empty">
-          <p>Elige una playlist para ver su cola.</p>
+          {hasPlaylists ? (
+            <p>Elige una playlist para ver su cola.</p>
+          ) : (
+            <>
+              <p>Crea una playlist para empezar tu cola.</p>
+              <button className="text-button" type="button" onClick={onCreatePlaylist}>
+                Crear playlist
+              </button>
+            </>
+          )}
         </div>
       ) : tracks.length === 0 ? (
         <div className="queue-empty">

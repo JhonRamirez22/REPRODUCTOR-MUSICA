@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AddTrackRequest, CatalogTrack, Playlist } from '@reproductor/shared';
 import { api } from '../api/client.js';
 import { Icon } from './Icon.js';
@@ -20,12 +20,34 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
   const [selected, setSelected] = useState<CatalogTrack | null>(null);
   const [placement, setPlacement] = useState<'head' | 'tail' | 'index'>('tail');
   const [index, setIndex] = useState(1);
+  const [positionError, setPositionError] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const statusRequest = useRef(0);
   const searchRequest = useRef(0);
+
+  const refreshCatalogStatus = useCallback(async (): Promise<void> => {
+    const requestId = ++statusRequest.current;
+    setCatalogEnabled(null);
+    setCatalogError(null);
+    setLoadingStatus(true);
+    try {
+      const status = await api.catalogStatus();
+      if (statusRequest.current === requestId) setCatalogEnabled(status.enabled);
+    } catch (statusError) {
+      if (statusRequest.current === requestId) {
+        setCatalogEnabled(false);
+        setCatalogError(
+          statusError instanceof Error ? statusError.message : 'No se pudo conectar al catálogo.',
+        );
+      }
+    } finally {
+      if (statusRequest.current === requestId) setLoadingStatus(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (open && !dialogRef.current?.open) dialogRef.current?.showModal();
@@ -40,27 +62,12 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setSelected(null);
     setPlacement('tail');
     setIndex((playlist?.trackCount ?? 0) + 1);
-    setLoadingStatus(true);
     setSearching(false);
     setSaving(false);
     setError(null);
-
-    const requestId = statusRequest.current;
-    void api
-      .catalogStatus()
-      .then((status) => {
-        if (statusRequest.current === requestId) setCatalogEnabled(status.enabled);
-      })
-      .catch((statusError: unknown) => {
-        if (statusRequest.current === requestId) {
-          setCatalogEnabled(false);
-          setError(statusError instanceof Error ? statusError.message : 'No se pudo conectar.');
-        }
-      })
-      .finally(() => {
-        if (statusRequest.current === requestId) setLoadingStatus(false);
-      });
-  }, [open, playlist?.id, playlist?.trackCount]);
+    setPositionError(null);
+    void refreshCatalogStatus();
+  }, [open, playlist?.id, playlist?.trackCount, refreshCatalogStatus]);
 
   function close(): void {
     statusRequest.current += 1;
@@ -75,6 +82,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setSelected(null);
     setSearching(false);
     setError(null);
+    setPositionError(null);
   }
 
   async function search(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -110,6 +118,15 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
       setError('Elige una pista del catálogo antes de agregarla.');
       return;
     }
+    if (
+      placement === 'index' &&
+      (!Number.isInteger(index) || index < 1 || index > (playlist.trackCount ?? 0) + 1)
+    ) {
+      setPositionError(`Elige una posición entre 1 y ${(playlist.trackCount ?? 0) + 1}.`);
+      setError(null);
+      return;
+    }
+    setPositionError(null);
     const at =
       placement === 'index'
         ? { mode: 'index' as const, index: Math.max(0, index - 1) }
@@ -241,12 +258,20 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
             )}
           </>
         ) : (
-          <div className="catalog-status catalog-not-configured" role="status">
-            <h3>El catálogo no está conectado</h3>
+          <div className="catalog-status catalog-not-configured" role="alert">
+            <h3>No hay conexión con el catálogo</h3>
             <p>
-              Instala las dependencias indicadas en <code>server/requirements.txt</code> y configura
-              <code> YTMUSIC_PYTHON</code> si tu intérprete tiene otra ruta. Consulta el README.
+              {catalogError ??
+                'La búsqueda no está disponible ahora. Vuelve a comprobar o avisa a quien administra esta app.'}
             </p>
+            <button
+              className="button button-quiet"
+              type="button"
+              disabled={loadingStatus}
+              onClick={() => void refreshCatalogStatus()}
+            >
+              {loadingStatus ? 'Comprobando…' : 'Volver a comprobar'}
+            </button>
           </div>
         )}
 
@@ -272,11 +297,22 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
                 type="number"
                 min={1}
                 max={(playlist?.trackCount ?? 0) + 1}
+                step={1}
                 value={index}
-                onChange={(event) => setIndex(Number(event.target.value))}
+                aria-invalid={positionError !== null}
+                aria-describedby={positionError ? 'position-error' : undefined}
+                onChange={(event) => {
+                  setIndex(Number(event.target.value));
+                  setPositionError(null);
+                }}
                 required
               />
             </label>
+          )}
+          {positionError && (
+            <p className="field-error" id="position-error" role="alert">
+              {positionError}
+            </p>
           )}
         </fieldset>
 

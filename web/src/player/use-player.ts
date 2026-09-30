@@ -76,6 +76,7 @@ export function usePlayer(
   const advanceRef = useRef<(direction: 'next' | 'previous', autoplay: boolean) => void>(
     () => undefined,
   );
+  const previousRef = useRef<() => void>(() => undefined);
   const handleErrorRef = useRef<() => void>(() => undefined);
 
   const setPlaying = useCallback((value: boolean) => {
@@ -304,7 +305,26 @@ export function usePlayer(
   );
 
   useEffect(() => {
-    if (!currentTrack || !('mediaSession' in navigator) || typeof MediaMetadata === 'undefined')
+    if (currentTrack?.provider !== 'youtube') return;
+    const pauseHiddenPlayback = () => {
+      if (document.visibilityState !== 'hidden') return;
+      // YouTube's player policy does not allow background playback.
+      playRequestRef.current += 1;
+      engineRef.current?.engine.pause();
+      setPlaying(false);
+      setIsLoading(false);
+    };
+    document.addEventListener('visibilitychange', pauseHiddenPlayback);
+    return () => document.removeEventListener('visibilitychange', pauseHiddenPlayback);
+  }, [currentTrack, setPlaying]);
+
+  useEffect(() => {
+    if (
+      !currentTrack ||
+      currentTrack.provider !== 'audio' ||
+      !('mediaSession' in navigator) ||
+      typeof MediaMetadata === 'undefined'
+    )
       return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -315,9 +335,7 @@ export function usePlayer(
       navigator.mediaSession.setActionHandler('play', () => playCurrentRef.current());
       navigator.mediaSession.setActionHandler('pause', () => engineRef.current?.engine.pause());
       navigator.mediaSession.setActionHandler('nexttrack', () => advanceRef.current('next', true));
-      navigator.mediaSession.setActionHandler('previoustrack', () =>
-        advanceRef.current('previous', true),
-      );
+      navigator.mediaSession.setActionHandler('previoustrack', () => previousRef.current());
     } catch {
       return;
     }
@@ -350,8 +368,20 @@ export function usePlayer(
       setCurrentTime(0);
       return;
     }
+    const cursor = cursorRef.current;
+    // Repeat-one keeps the cursor on the current item. At the queue head,
+    // repeat-off has no previous node, so restart this track in place.
+    if (
+      cursor?.repeatMode === 'one' ||
+      (cursor?.repeatMode === 'off' && cursor.current && !cursor.current.prev)
+    ) {
+      engineRef.current?.engine.seek(0);
+      setCurrentTime(0);
+      return;
+    }
     advanceRef.current('previous', true);
   }, [currentTime]);
+  previousRef.current = previous;
 
   const next = useCallback(() => advanceRef.current('next', true), []);
 

@@ -107,12 +107,40 @@ describe('AddTrackDialog', () => {
     expect(screen.getByRole('button', { name: /Pista nueva/ })).toBeTruthy();
   });
 
-  it('explains how to connect the catalog when the Python dependency is unavailable', async () => {
+  it('explains that the catalog is unavailable without exposing setup instructions', async () => {
     vi.mocked(api.catalogStatus).mockResolvedValue({ enabled: false });
     render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={vi.fn()} />);
 
-    expect(await screen.findByText('El catálogo no está conectado')).toBeTruthy();
-    expect(screen.getByText(/server\/requirements\.txt/)).toBeTruthy();
+    expect(await screen.findByText('No hay conexión con el catálogo')).toBeTruthy();
+    expect(screen.getByText(/avisa a quien administra esta app/i)).toBeTruthy();
     expect(screen.queryByLabelText('Canción o artista')).toBeNull();
+  });
+
+  it('rechecks an unavailable catalog when the user asks to try again', async () => {
+    vi.mocked(api.catalogStatus)
+      .mockResolvedValueOnce({ enabled: false })
+      .mockResolvedValueOnce({ enabled: true });
+    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Volver a comprobar' }));
+    expect(await screen.findByLabelText('Canción o artista')).toBeTruthy();
+    expect(api.catalogStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects positions outside the current playlist range', async () => {
+    const onAdd = vi.fn(async () => undefined);
+    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={onAdd} />);
+    const queryInput = await screen.findByLabelText('Canción o artista');
+    fireEvent.change(queryInput, { target: { value: 'Fankel' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Mañana será tarde/ }));
+    fireEvent.change(screen.getByLabelText('Agregar al'), { target: { value: 'index' } });
+    fireEvent.change(screen.getByLabelText('Posición (1–3)'), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar a la playlist' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Elige una posición entre 1 y 3.',
+    );
+    expect(onAdd).not.toHaveBeenCalled();
   });
 });

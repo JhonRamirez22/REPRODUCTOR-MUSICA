@@ -9,7 +9,7 @@ Aplicación web en español para crear playlists persistentes y buscar canciones
 - Crear, renombrar, cambiar y eliminar playlists con PostgreSQL e identidad anónima por cookie firmada.
 - Buscar por título o artista, elegir un resultado de YouTube Music y agregarlo al inicio, al final o en una posición elegida.
 - Verificar en el servidor que el video seleccionado pertenece a la búsqueda antes de guardarlo; la interfaz no ofrece entrada de enlaces.
-- Reproducir mediante el reproductor oficial de YouTube visible, con play/pausa, progreso, volumen, anterior, siguiente, repetición, shuffle y Media Session.
+- Reproducir mediante el reproductor oficial de YouTube visible, con play/pausa, progreso, volumen, anterior, siguiente, repetición y shuffle. Media Session se usa en pistas de audio directo.
 - Reordenar con controles accesibles, eliminar pistas, permitir duplicados y saltar fuentes no disponibles.
 - Diseño adaptable, operación por teclado y estados de carga, error y vacío.
 
@@ -143,7 +143,7 @@ El contenedor ya incluye el intérprete y el paquete Python para búsquedas púb
 ## Límites conocidos y privacidad
 
 - `ytmusicapi` es una biblioteca no oficial que reproduce las solicitudes web públicas de YouTube Music. No tiene una clave de API propia; la búsqueda no autenticada puede cambiar o dejar de funcionar si YouTube cambia su interfaz. No se envían cookies ni credenciales de usuario. Consulta el [proyecto y su documentación](https://github.com/sigma67/ytmusicapi).
-- La reproducción usa el YouTube IFrame Player API con el video visible. La app no extrae, separa ni descarga audio, y no oculta el video para habilitar solo audio. El contenido y el reproductor están sujetos a las [políticas de YouTube para desarrolladores](https://developers.google.com/youtube/terms/developer-policies-guide).
+- La reproducción usa el YouTube IFrame Player API con el video visible (mínimo 200 × 200 px). La app pausa YouTube cuando la página queda oculta: las [políticas de YouTube para desarrolladores](https://developers.google.com/youtube/terms/developer-policies-guide) prohíben habilitar reproducción en segundo plano, descargar o separar audio. Media Session queda habilitada para fuentes de audio directo.
 - El servidor pasa el texto de búsqueda a `ytmusicapi`; el navegador carga la miniatura de YouTube y el reproductor oficial al reproducir. YouTube recibe las solicitudes y datos técnicos que requiere la reproducción.
 - Solo se guardan el `videoId`, título, artista, duración, miniatura, posición y referencia de origen. No se almacena audio.
 - La cookie anónima identifica el navegador. Borrarla crea otro propietario y no permite recuperar playlists anteriores. No hay cuenta ni recuperación de identidad.

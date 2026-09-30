@@ -15,3 +15,5 @@ El generador UI UX Pro Max (`uipro` y `scripts/search.py`) no está instalado en
 | Error              | `--danger`     | `#ff5d5d` |
 
 Los valores de espacio siguen saltos de 4 px. Las superficies usan radios de 8 y 12 px, y la UI toma la fuente de sistema disponible. El acento oscuro sobre coral mantiene el texto legible; el acento también supera el contraste requerido frente al fondo.
+
+El tema oscuro es el predeterminado. Si `prefers-color-scheme` indica claro, la UI cambia a fondo `#f4f0ea`, superficies marfil, texto `#24201c` y acento `#b93f1b`; `data-theme="dark"` fuerza el tema oscuro.

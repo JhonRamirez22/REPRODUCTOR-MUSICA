@@ -10,3 +10,4 @@
 - El servidor valida que el `videoId` elegido aparezca para el texto de búsqueda y guarda solo metadatos y referencia; el navegador reproduce el resultado en el YouTube IFrame Player API visible y no descarga ni extrae audio.
 - La app instala `ytmusicapi` en un entorno Python aislado dentro de Docker. En desarrollo se fija `ytmusicapi==1.12.3` en `server/requirements.txt`; la decisión de añadir una dependencia Python externa se justifica por la petición explícita del usuario de emplear esa biblioteca.
 - `JAMENDO_CLIENT_ID` y la ruta de streaming antigua se conservan únicamente para compatibilidad de reproducción con registros creados por la versión anterior; el buscador ya no usa Jamendo.
+- YouTube prohíbe la reproducción en segundo plano: el iframe se pausa al ocultarse la página y Media Session solo se registra para fuentes de audio directo, de modo que sus controles no reanuden YouTube en segundo plano.

@@ -35,7 +35,9 @@ export class YtMusicService {
     this.availability ??= this.run({ action: 'check' })
       .then((response) => z.object({ ready: z.literal(true) }).safeParse(response).success)
       .catch(() => false);
-    return this.availability;
+    const available = await this.availability;
+    if (!available) this.availability = null;
+    return available;
   }
 
   async search(query: string): Promise<CatalogTrack[]> {

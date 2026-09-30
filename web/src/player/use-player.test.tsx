@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
 import { usePlayer } from './use-player.js';
@@ -27,6 +27,7 @@ class FakePlayerEngine implements PlayerEngine {
   readonly events = new EventEmitter();
   loadedTrack: Track | null = null;
   playCount = 0;
+  pauseCount = 0;
   seekTo = -1;
   volume = 1;
 
@@ -41,6 +42,7 @@ class FakePlayerEngine implements PlayerEngine {
   }
 
   pause(): void {
+    this.pauseCount += 1;
     this.events.emit('statechange', 'paused');
   }
 
@@ -77,6 +79,95 @@ describe('usePlayer', () => {
     await waitFor(() => expect(engine.playCount).toBe(2));
     expect(engine.loadedTrack?.id).toBe(second.id);
     expect(result.current.currentTrack?.id).toBe(second.id);
+  });
+
+  it('restarts the current track when previous is pressed near the start of the queue head', async () => {
+    const first = makeTrack('00000000-0000-4000-8000-000000000020', 'Primera');
+    const tracks = [first];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    act(() => result.current.togglePlay());
+    await waitFor(() => expect(engine.playCount).toBe(1));
+    act(() => engine.events.emit('timeupdate', { currentTime: 2, duration: 120 }));
+
+    act(() => result.current.previous());
+
+    expect(engine.seekTo).toBe(0);
+    expect(result.current.currentTrack?.id).toBe(first.id);
+    expect(result.current.isPlaying).toBe(true);
+  });
+
+  it('restarts the current track for previous while repeat-one is active', async () => {
+    const first = makeTrack('00000000-0000-4000-8000-000000000021', 'Primera');
+    const second = makeTrack('00000000-0000-4000-8000-000000000022', 'Segunda');
+    const tracks = [first, second];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    act(() => result.current.playTrack(second.id));
+    await waitFor(() => expect(engine.playCount).toBe(1));
+    act(() => result.current.toggleRepeat());
+    act(() => result.current.toggleRepeat());
+    act(() => engine.events.emit('timeupdate', { currentTime: 2, duration: 120 }));
+
+    act(() => result.current.previous());
+
+    expect(engine.seekTo).toBe(0);
+    expect(engine.loadedTrack?.id).toBe(second.id);
+    expect(result.current.currentTrack?.id).toBe(second.id);
+    expect(result.current.repeatMode).toBe('one');
+  });
+
+  it('pauses YouTube playback when the document becomes hidden', async () => {
+    const previousVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+    const previousMediaSession = Object.getOwnPropertyDescriptor(navigator, 'mediaSession');
+    const setActionHandler = vi.fn();
+    vi.stubGlobal('MediaMetadata', class FakeMediaMetadata {});
+    Object.defineProperty(navigator, 'mediaSession', {
+      configurable: true,
+      value: { metadata: null, setActionHandler },
+    });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    const track: Track = {
+      ...makeTrack('00000000-0000-4000-8000-000000000023', 'YouTube'),
+      provider: 'youtube',
+      sourceId: 'abcdefghijk',
+      sourceUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+    };
+    const tracks = [track];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result, unmount } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    try {
+      await waitFor(() => expect(result.current.currentTrack?.id).toBe(track.id));
+      expect(setActionHandler).not.toHaveBeenCalled();
+      act(() => result.current.togglePlay());
+      await waitFor(() => expect(engine.playCount).toBe(1));
+
+      act(() => {
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(engine.pauseCount).toBe(1);
+      expect(result.current.isPlaying).toBe(false);
+    } finally {
+      unmount();
+      if (previousVisibility)
+        Object.defineProperty(document, 'visibilityState', previousVisibility);
+      else Reflect.deleteProperty(document, 'visibilityState');
+      vi.unstubAllGlobals();
+      if (previousMediaSession)
+        Object.defineProperty(navigator, 'mediaSession', previousMediaSession);
+      else Reflect.deleteProperty(navigator, 'mediaSession');
+    }
   });
 
   it('marks an unavailable source and stops when the queue has no alternative', async () => {

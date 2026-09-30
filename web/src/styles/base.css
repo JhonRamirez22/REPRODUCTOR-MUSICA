@@ -616,6 +616,22 @@ a.source-chip:hover {
   margin: 7px auto 0;
 }
 
+.keyboard-shortcuts {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.keyboard-shortcuts kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
 .progress-row {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) 38px;

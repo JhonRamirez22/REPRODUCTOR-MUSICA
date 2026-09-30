@@ -20,6 +20,8 @@ Cada fila muestra una conexión vertical discreta que hace visible el orden enla
 
 Se usa la paleta cálida oscura del brief: fondo `#121110`, superficies `#1b1917` y `#25221f`, texto `#f3efe9`, texto secundario `#a39b91` y acento coral `#ff6b3d`. El acento se reserva para reproducir, la selección activa y el foco. Los controles sobre coral usan texto oscuro `#121110`.
 
+El modo oscuro es el valor predeterminado. Cuando el sistema operativo solicita un tema claro, la interfaz usa una variante cálida (`#f4f0ea`, superficies marfil y acento `#b93f1b`); `data-theme="dark"` mantiene el modo oscuro explícito.
+
 ## Tipografía y forma
 
 La UI emplea una pila nativa legible con fallback local; no depende de fuentes remotas. Títulos, nombres y duraciones crean jerarquía mediante tamaño, peso y espacio. Superficies planas, bordes finos y radios contenidos mantienen la densidad del reproductor sin paneles anidados ni sombras decorativas.

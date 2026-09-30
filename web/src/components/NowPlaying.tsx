@@ -188,6 +188,10 @@ export function NowPlaying({
             player={player}
             disabled={!track || player.unavailableIds.has(track.id)}
           />
+          <p className="keyboard-shortcuts">
+            Atajos: <kbd>Espacio</kbd> reproduce o pausa · <kbd>←</kbd>/<kbd>→</kbd> cambia de pista
+            · <kbd>M</kbd> silencia
+          </p>
         </>
       ) : null}
     </main>

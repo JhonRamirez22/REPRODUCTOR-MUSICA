@@ -41,6 +41,7 @@ describe('QueuePanel', () => {
     render(
       <QueuePanel
         playlistName="Lista personal"
+        hasPlaylists
         tracks={[jamendoTrack]}
         currentTrackId={jamendoTrack.id}
         unavailableIds={new Set()}
@@ -48,6 +49,7 @@ describe('QueuePanel', () => {
         mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
+        onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
         onRemove={() => undefined}
@@ -67,6 +69,7 @@ describe('QueuePanel', () => {
     render(
       <QueuePanel
         playlistName="Lista personal"
+        hasPlaylists
         tracks={[otherTrack, track]}
         currentTrackId={track.id}
         unavailableIds={new Set()}
@@ -74,6 +77,7 @@ describe('QueuePanel', () => {
         mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
+        onCreatePlaylist={() => undefined}
         onPlay={onPlay}
         onMove={onMove}
         onRemove={onRemove}
@@ -94,6 +98,7 @@ describe('QueuePanel', () => {
     const { container, rerender } = render(
       <QueuePanel
         playlistName="Lista personal"
+        hasPlaylists
         tracks={[track]}
         currentTrackId={track.id}
         unavailableIds={new Set()}
@@ -101,6 +106,7 @@ describe('QueuePanel', () => {
         mobileViewport
         onClose={onClose}
         onAdd={() => undefined}
+        onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
         onRemove={() => undefined}
@@ -114,6 +120,7 @@ describe('QueuePanel', () => {
     rerender(
       <QueuePanel
         playlistName="Lista personal"
+        hasPlaylists
         tracks={[track]}
         currentTrackId={track.id}
         unavailableIds={new Set()}
@@ -121,6 +128,7 @@ describe('QueuePanel', () => {
         mobileViewport
         onClose={onClose}
         onAdd={() => undefined}
+        onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
         onRemove={() => undefined}
@@ -136,5 +144,31 @@ describe('QueuePanel', () => {
     expect(document.activeElement).toBe(closeButton);
     fireEvent.keyDown(closeButton, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('offers playlist creation when the library is empty', () => {
+    const onCreatePlaylist = vi.fn();
+    render(
+      <QueuePanel
+        playlistName={null}
+        hasPlaylists={false}
+        tracks={[]}
+        currentTrackId={null}
+        unavailableIds={new Set()}
+        open={false}
+        mobileViewport={false}
+        onClose={() => undefined}
+        onAdd={() => undefined}
+        onCreatePlaylist={onCreatePlaylist}
+        onPlay={() => undefined}
+        onMove={() => undefined}
+        onRemove={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Crea una playlist para empezar tu cola.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Crear playlist' }));
+    expect(onCreatePlaylist).toHaveBeenCalledOnce();
+    expect(screen.queryByText('Elige una playlist para ver su cola.')).toBeNull();
   });
 });

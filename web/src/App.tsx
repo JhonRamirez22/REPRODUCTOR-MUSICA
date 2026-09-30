@@ -367,6 +367,7 @@ function App() {
         />
         <QueuePanel
           playlistName={activePlaylist?.name ?? null}
+          hasPlaylists={playlists.length > 0}
           tracks={tracks}
           currentTrackId={player.currentTrack?.id ?? null}
           unavailableIds={player.unavailableIds}
@@ -375,6 +376,10 @@ function App() {
           onClose={() => setQueueOpen(false)}
           onAdd={() => {
             setAddTrackOpen(true);
+          }}
+          onCreatePlaylist={() => {
+            setQueueOpen(false);
+            setNameDialog({ mode: 'create' });
           }}
           onPlay={player.playTrack}
           onMove={(track, toIndex) => void moveTrack(track, toIndex)}

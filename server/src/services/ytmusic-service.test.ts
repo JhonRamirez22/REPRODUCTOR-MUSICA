@@ -70,4 +70,14 @@ describe('YtMusicService', () => {
 
     await expect(service.isAvailable()).resolves.toBe(false);
   });
+
+  it('rechecks availability after a previous failed check', async () => {
+    const responses: unknown[] = [{ ready: false }, { ready: true }];
+    const run = vi.fn(async () => responses.shift());
+    const service = new YtMusicService('python3', run);
+
+    await expect(service.isAvailable()).resolves.toBe(false);
+    await expect(service.isAvailable()).resolves.toBe(true);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
 });
