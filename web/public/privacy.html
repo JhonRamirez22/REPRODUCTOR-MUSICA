@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Privacidad · Reproductor</title>
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family:
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        background: #171513;
+        color: #f3efe9;
+      }
+      body {
+        width: min(720px, calc(100% - 32px));
+        margin: 48px auto;
+        line-height: 1.65;
+      }
+      a {
+        color: #ff906d;
+        text-underline-offset: 3px;
+      }
+      h1,
+      h2 {
+        line-height: 1.2;
+      }
+      h1 {
+        font-size: clamp(28px, 5vw, 40px);
+      }
+      h2 {
+        margin-top: 32px;
+        font-size: 20px;
+      }
+      .back {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          background: #fffdfa;
+          color: #211c18;
+        }
+        a {
+          color: #a53c1e;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back" href="/">Volver al reproductor</a>
+    <main>
+      <h1>Aviso de privacidad</h1>
+      <p>
+        Esta aplicación guarda playlists para que funcionen entre visitas en el mismo navegador. No
+        solicita nombre, correo ni una cuenta.
+      </p>
+
+      <h2>Datos que se guardan</h2>
+      <p>
+        El servidor crea un identificador aleatorio de propietario dentro de una cookie firmada,
+        protegida como HttpOnly y SameSite=Lax, con una duración de hasta un año. PostgreSQL guarda
+        los nombres de playlists, el orden y los IDs, títulos, artistas, carátulas, enlaces de ficha
+        y licencias de las pistas que agregas. El audio no se almacena.
+      </p>
+      <p>
+        Las playlists y sus pistas permanecen hasta que las elimines desde la aplicación o el
+        administrador de la instancia elimine los datos. Borrar la cookie crea otro identificador;
+        no borra ni recupera playlists anteriores.
+      </p>
+
+      <h2>Búsqueda y reproducción de Jamendo</h2>
+      <p>
+        Cuando buscas una canción, el texto de búsqueda pasa desde el servidor a la API de Jamendo
+        para encontrar resultados. Los metadatos de la pista elegida se guardan junto con la
+        playlist. Al reproducir, el navegador solicita una transmisión de Jamendo; la música no pasa
+        por el servidor del reproductor. Jamendo puede recibir datos técnicos de esas solicitudes y
+        trata los datos de acuerdo con su propia
+        <a
+          href="https://licensing.jamendo.com/en/legal/privacypolicy"
+          target="_blank"
+          rel="noreferrer"
+        >
+          política de privacidad
+        </a>
+        .
+      </p>
+
+      <h2>Hosting y registros técnicos</h2>
+      <p>
+        El servidor y la base de datos pueden procesar datos técnicos de conexión para operar y
+        proteger el servicio. Si esta instancia se aloja en Render u otro proveedor, ese proveedor
+        también trata solicitudes y datos según sus términos y aviso de privacidad.
+      </p>
+
+      <h2>Contacto</h2>
+      <p>
+        El responsable de privacidad es la persona u organización que administra la instancia
+        pública. Consulta con ese administrador para preguntas o solicitudes relacionadas con los
+        datos guardados.
+      </p>
+    </main>
+  </body>
+</html>

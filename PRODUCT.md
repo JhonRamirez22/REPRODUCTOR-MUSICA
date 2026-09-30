@@ -12,11 +12,11 @@ Monorepo TypeScript con Node.js, Fastify, PostgreSQL, React y Vite, según el st
 
 ## Usuarios
 
-Inferido del taller: estudiantes que aprenden estructuras de datos y necesitan demostrar operaciones de playlist; también personas que organizan música desde enlaces compatibles.
+Inferido del taller: estudiantes que aprenden estructuras de datos y necesitan demostrar operaciones de playlist; también personas que organizan música desde un catálogo de artistas independientes.
 
 ## Propósito
 
-Permitir crear playlists persistentes desde enlaces de YouTube y URLs directas de audio, y escuchar, ordenar y recorrer sus pistas. El éxito consiste en mostrar una lista doblemente enlazada real mientras la app funciona como reproductor.
+Permitir crear playlists persistentes, buscar música mediante una API de catálogo y escuchar, ordenar y recorrer sus pistas. El éxito consiste en mostrar una lista doblemente enlazada real mientras la app funciona como reproductor.
 
 ## Posicionamiento
 
@@ -24,13 +24,13 @@ La misma lista doblemente enlazada implementada a mano dirige las mutaciones del
 
 ## Contexto de uso
 
-La persona pega un enlace compatible, revisa sus metadatos, decide dónde insertarlo y recorre la cola con controles, teclado o botones táctiles. Una cookie firmada conserva la propiedad anónima del navegador.
+La persona busca una canción o artista en el catálogo, elige una pista, decide dónde insertarla y recorre la cola con controles, teclado o botones táctiles. Una cookie firmada conserva la propiedad anónima del navegador.
 
 ## Capacidades y restricciones
 
 - La UI y la documentación del producto están en español; los identificadores del código están en inglés.
 - Las playlists y las pistas persisten en PostgreSQL. El audio no se sube ni se almacena.
-- Las fuentes son reproducción embebida de YouTube y enlaces HTTPS directos a audio.
+- La fuente de las pistas nuevas es el catálogo de Jamendo; se conserva un enlace a la página del artista y su licencia Creative Commons.
 - El video de YouTube permanece visible en un reproductor de al menos 200 × 200 px.
 - El orden se implementa con una lista doblemente enlazada, nunca con un array como estructura de datos.
 - Se requieren accesibilidad, operación por teclado, diseño adaptable y estados explícitos de carga, vacío, error y éxito.

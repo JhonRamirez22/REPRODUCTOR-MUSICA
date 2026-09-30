@@ -109,13 +109,25 @@ export function QueuePanel({
                   <span className="queue-track-subtitle">
                     {unavailable
                       ? 'Esta pista no está disponible'
-                      : track.artist ||
-                        (track.provider === 'youtube' ? 'YouTube' : 'Audio directo')}
+                      : track.artist || providerLabel(track.provider)}
                   </span>
                 </button>
-                <span className="queue-duration">
-                  {track.durationSec ? formatTime(track.durationSec) : '—'}
-                </span>
+                {track.provider === 'jamendo' ? (
+                  <a
+                    className="queue-duration queue-source-link"
+                    href={track.attributionUrl ?? track.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Abrir la ficha de ${track.title} en Jamendo`}
+                  >
+                    <span>{track.durationSec ? formatTime(track.durationSec) : '—'}</span>
+                    <span>Jamendo</span>
+                  </a>
+                ) : (
+                  <span className="queue-duration">
+                    {track.durationSec ? formatTime(track.durationSec) : '—'}
+                  </span>
+                )}
                 <div className="queue-actions">
                   <button
                     className="icon-button compact"
@@ -157,4 +169,10 @@ export function QueuePanel({
       )}
     </aside>
   );
+}
+
+function providerLabel(provider: Track['provider']): string {
+  if (provider === 'youtube') return 'YouTube';
+  if (provider === 'jamendo') return 'Jamendo';
+  return 'Audio directo';
 }

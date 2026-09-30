@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import type { AppConfig } from './config.js';
@@ -14,8 +14,11 @@ export function createPool(config: AppConfig): Pool {
 }
 
 export async function migrate(pool: Pool): Promise<void> {
-  const migrationUrl = new URL('../migrations/001_init.sql', import.meta.url);
-  const migrationSql = await readFile(fileURLToPath(migrationUrl), 'utf8');
+  const migrationsUrl = new URL('../migrations/', import.meta.url);
+  const migrationsDirectory = fileURLToPath(migrationsUrl);
+  const migrations = (await readdir(migrationsDirectory))
+    .filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name))
+    .sort();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -26,13 +29,17 @@ export async function migrate(pool: Pool): Promise<void> {
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-    const result = await client.query<{ version: string }>(
-      'SELECT version FROM schema_migrations WHERE version = $1',
-      ['001_init'],
-    );
-    if (result.rowCount === 0) {
-      await client.query(migrationSql);
-      await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', ['001_init']);
+    for (const migration of migrations) {
+      const version = migration.slice(0, -'.sql'.length);
+      const result = await client.query<{ version: string }>(
+        'SELECT version FROM schema_migrations WHERE version = $1',
+        [version],
+      );
+      if (result.rowCount === 0) {
+        const migrationSql = await readFile(new URL(migration, migrationsUrl), 'utf8');
+        await client.query(migrationSql);
+        await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+      }
     }
     await client.query('COMMIT');
   } catch (error) {

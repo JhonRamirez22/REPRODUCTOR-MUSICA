@@ -10,7 +10,7 @@ En escritorio, la pantalla se organiza en tres zonas estables: playlists a la iz
 
 ## Recorrido
 
-Crear una playlist, pegar un enlace, revisar y editar su vista previa, elegir la posición y reproducir. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa. El estado vacío invita a agregar el primer enlace sin mostrar música de ejemplo.
+Crear una playlist, buscar una canción o artista en el catálogo, elegir un resultado y su posición, y reproducir. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa. El estado vacío invita a buscar una pista sin mostrar música de ejemplo.
 
 ## Interacción distintiva
 

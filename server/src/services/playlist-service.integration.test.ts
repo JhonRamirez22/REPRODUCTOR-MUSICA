@@ -27,10 +27,13 @@ describe.skipIf(!enabled)('PlaylistService with PostgreSQL', () => {
     const playlist = await service.create(ownerId, 'Prueba de integración');
     try {
       const source = (title: string) => ({
-        provider: 'audio' as const,
-        sourceId: `https://cdn.example.org/${encodeURIComponent(title)}.mp3`,
-        sourceUrl: `https://cdn.example.org/${encodeURIComponent(title)}.mp3`,
+        provider: 'jamendo' as const,
+        sourceId: title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103',
+        sourceUrl: `https://www.jamendo.com/track/${title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103'}`,
         title,
+        artist: 'Artista de prueba',
+        attributionUrl: `https://www.jamendo.com/track/${title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103'}`,
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
       });
       const first = await service.addTrack(
         ownerId,
@@ -136,10 +139,13 @@ describe.skipIf(!enabled)('PlaylistService with PostgreSQL', () => {
         code: 'not_found',
       });
       const source = {
-        provider: 'audio' as const,
-        sourceId: 'https://cdn.example.org/solo.mp3',
-        sourceUrl: 'https://cdn.example.org/solo.mp3',
+        provider: 'jamendo' as const,
+        sourceId: '101',
+        sourceUrl: 'https://www.jamendo.com/track/101',
         title: 'Una pista',
+        artist: 'Artista de prueba',
+        attributionUrl: 'https://www.jamendo.com/track/101',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
       };
       await limited.addTrack(
         ownerId,

@@ -382,6 +382,11 @@ function App() {
         />
       </div>
 
+      <footer className="app-footer">
+        <span>El catálogo y las transmisiones de música son de Jamendo.</span>
+        <a href="/privacy.html">Privacidad</a>
+      </footer>
+
       {player.currentTrack && !mobilePlayerExpanded && (
         <div className="mobile-player" aria-label="Controles de reproducción móvil">
           <button
@@ -394,7 +399,11 @@ function App() {
             <span className="mobile-player-title">{player.currentTrack.title}</span>
             <span className="mobile-player-artist">
               {player.currentTrack.artist ||
-                (player.currentTrack.provider === 'youtube' ? 'YouTube' : 'Audio directo')}
+                (player.currentTrack.provider === 'youtube'
+                  ? 'YouTube'
+                  : player.currentTrack.provider === 'jamendo'
+                    ? 'Jamendo'
+                    : 'Audio directo')}
             </span>
           </button>
           <button

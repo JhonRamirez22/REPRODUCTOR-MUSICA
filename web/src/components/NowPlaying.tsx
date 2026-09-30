@@ -90,7 +90,7 @@ export function NowPlaying({
             <Icon name="brand" size={34} />
           </div>
           <h2>Empieza con una playlist</h2>
-          <p>Crea una lista y agrega música desde enlaces de YouTube o audio directo.</p>
+          <p>Crea una lista y encuentra música en el catálogo de artistas independientes.</p>
           <button className="button button-primary" type="button" onClick={onCreatePlaylist}>
             Crear playlist
           </button>
@@ -101,7 +101,7 @@ export function NowPlaying({
             <span />
           </div>
           <h2>Tu playlist está vacía</h2>
-          <p>Agrega un enlace y aparecerá aquí, listo para reproducirse.</p>
+          <p>Busca una canción en Jamendo y aparecerá aquí, lista para reproducirse.</p>
           <button className="button button-primary" type="button" onClick={onAddTrack}>
             <Icon name="plus" size={18} /> Agregar una pista
           </button>
@@ -146,11 +146,36 @@ export function NowPlaying({
               <h2 className={player.unavailableIds.has(track.id) ? 'is-unavailable' : ''}>
                 {track.title}
               </h2>
-              <p>{track.artist || (track.provider === 'youtube' ? 'YouTube' : 'Audio directo')}</p>
+              <p>{track.artist || providerLabel(track.provider)}</p>
+              {track.provider === 'jamendo' && (
+                <div className="track-attribution">
+                  <a
+                    href={track.attributionUrl ?? track.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir ficha en Jamendo
+                  </a>
+                  {track.licenseUrl && (
+                    <a href={track.licenseUrl} target="_blank" rel="noreferrer">
+                      Licencia Creative Commons
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
-            <span className="source-chip">
-              {track.provider === 'youtube' ? 'YouTube' : 'Audio'}
-            </span>
+            {track.provider === 'jamendo' ? (
+              <a
+                className="source-chip"
+                href={track.attributionUrl ?? track.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Jamendo
+              </a>
+            ) : (
+              <span className="source-chip">{providerLabel(track.provider)}</span>
+            )}
           </section>
 
           {player.message && (
@@ -166,4 +191,10 @@ export function NowPlaying({
       ) : null}
     </main>
   );
+}
+
+function providerLabel(provider: Track['provider']): string {
+  if (provider === 'youtube') return 'YouTube';
+  if (provider === 'jamendo') return 'Jamendo';
+  return 'Audio directo';
 }

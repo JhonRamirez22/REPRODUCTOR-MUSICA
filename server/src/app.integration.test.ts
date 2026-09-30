@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { migrate } from './db.js';
+import { JamendoService } from './services/jamendo-service.js';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const enabled = Boolean(testDatabaseUrl);
@@ -31,13 +32,35 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
 
   it('keeps CRUD, insertion positions, ownership, and revision conflicts coherent over HTTP', async () => {
     if (!pool || !testDatabaseUrl) throw new Error('TEST_DATABASE_URL is required.');
+    const jamendo = new JamendoService('test-client-id', async (input) => {
+      const id = new URL(String(input)).searchParams.get('id') ?? '101';
+      const name = id === '102' ? 'Segunda' : 'Primera';
+      return new Response(
+        JSON.stringify({
+          headers: { status: 'success', code: 0, error_message: '' },
+          results: [
+            {
+              id,
+              name,
+              artist_name: 'Artista de prueba',
+              duration: 120,
+              image: 'https://usercontent.jamendo.com/cover.jpg',
+              license_ccurl: 'http://creativecommons.org/licenses/by/4.0/',
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
         DATABASE_URL: testDatabaseUrl,
         COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
+        JAMENDO_CLIENT_ID: 'test-client-id',
       }),
       pool,
+      jamendo,
     });
 
     const created = await app.inject({
@@ -74,7 +97,7 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        url: 'https://cdn.example.org/primera.mp3',
+        catalogTrackId: '101',
         at: { mode: 'index', index: 1 },
         expectedRevision: 0,
       },
@@ -86,21 +109,21 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        url: 'https://cdn.example.org/primera.mp3',
+        catalogTrackId: '101',
         at: { mode: 'tail' },
         expectedRevision: 0,
       },
     });
     expect(first.statusCode).toBe(201);
     const firstResult = first.json<{ tracks: Array<{ id: string; title: string }> }>();
-    expect(firstResult.tracks.map((track) => track.title)).toEqual(['primera']);
+    expect(firstResult.tracks.map((track) => track.title)).toEqual(['Primera']);
 
     const staleWrite = await app.inject({
       method: 'POST',
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        url: 'https://cdn.example.org/segunda.mp3',
+        catalogTrackId: '102',
         at: { mode: 'tail' },
         expectedRevision: 0,
       },
@@ -113,7 +136,7 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        url: 'https://cdn.example.org/segunda.mp3',
+        catalogTrackId: '102',
         at: { mode: 'head' },
         expectedRevision: 1,
       },

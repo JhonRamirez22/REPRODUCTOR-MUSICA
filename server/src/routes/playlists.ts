@@ -3,15 +3,13 @@ import {
   CreatePlaylistRequestSchema,
   MoveTrackRequestSchema,
   RenamePlaylistRequestSchema,
-  parseSourceUrl,
-  type ResolvedTrackSource,
 } from '@reproductor/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import { HttpError } from '../errors.js';
 import { ownerIdForRequest } from '../owner.js';
-import type { MetadataService } from '../services/metadata-service.js';
+import type { JamendoService } from '../services/jamendo-service.js';
 import type { PlaylistService } from '../services/playlist-service.js';
 
 const PlaylistParamsSchema = z.object({ playlistId: z.string().uuid() });
@@ -22,13 +20,13 @@ const ExpectedRevisionSchema = z.object({
 
 interface PlaylistRouteOptions {
   service: PlaylistService;
-  metadata: MetadataService;
+  jamendo: JamendoService;
   config: AppConfig;
 }
 
 export const playlistRoutes: FastifyPluginAsync<PlaylistRouteOptions> = async (
   app,
-  { service, metadata, config },
+  { service, jamendo, config },
 ) => {
   app.get('/playlists', async (request, reply) => {
     const ownerId = ownerIdForRequest(request, reply, config.NODE_ENV === 'production');
@@ -69,20 +67,7 @@ export const playlistRoutes: FastifyPluginAsync<PlaylistRouteOptions> = async (
     const { playlistId } = PlaylistParamsSchema.parse(request.params);
     const input = AddTrackRequestSchema.parse(request.body);
     const ownerId = ownerIdForRequest(request, reply, config.NODE_ENV === 'production');
-    const parsedSource = parseSourceUrl(input.url, input.allowExtensionless);
-    let source: ResolvedTrackSource;
-    if (input.resolved) {
-      if (
-        input.resolved.provider !== parsedSource.provider ||
-        input.resolved.sourceId !== parsedSource.sourceId ||
-        input.resolved.sourceUrl !== parsedSource.sourceUrl
-      ) {
-        throw new HttpError(400, 'validation_error', 'La vista previa no coincide con el enlace.');
-      }
-      source = input.resolved;
-    } else {
-      source = await metadata.resolve(input.url, input.allowExtensionless);
-    }
+    const source = await jamendo.resolveTrack(input.catalogTrackId);
     const playlist = await service.addTrack(ownerId, playlistId, input, source);
     return reply.code(201).send(playlist);
   });

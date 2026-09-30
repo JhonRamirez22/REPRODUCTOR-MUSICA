@@ -17,6 +17,8 @@ function makeTrack(id: string, title: string): Track {
     artist: null,
     durationSec: 120,
     thumbnailUrl: null,
+    attributionUrl: null,
+    licenseUrl: null,
     available: true,
   };
 }

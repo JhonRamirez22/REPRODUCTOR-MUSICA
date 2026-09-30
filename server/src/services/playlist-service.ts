@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import {
   DoublyLinkedList,
+  type Provider,
   type Playlist,
   type PlaylistSummary,
-  type ResolvedTrackSource,
+  type ResolvedCatalogTrack,
   type Track,
 } from '@reproductor/shared';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
@@ -23,13 +24,15 @@ interface TrackRow extends QueryResultRow {
   id: string;
   playlist_id: string;
   position: number;
-  provider: 'youtube' | 'audio';
+  provider: Provider;
   source_id: string;
   source_url: string;
   title: string;
   artist: string | null;
   duration_sec: number | null;
   thumbnail_url: string | null;
+  attribution_url: string | null;
+  license_url: string | null;
 }
 
 export class PlaylistService {
@@ -104,12 +107,10 @@ export class PlaylistService {
     ownerId: string,
     playlistId: string,
     input: {
-      title?: string;
-      artist?: string;
       at: { mode: 'head' } | { mode: 'tail' } | { mode: 'index'; index: number };
       expectedRevision: number;
     },
-    source: ResolvedTrackSource,
+    source: ResolvedCatalogTrack,
   ): Promise<Playlist> {
     return this.withTransaction(async (client) => {
       const playlist = await this.lockOwnedPlaylist(client, ownerId, playlistId);
@@ -141,18 +142,20 @@ export class PlaylistService {
         provider: source.provider,
         sourceId: source.sourceId,
         sourceUrl: source.sourceUrl,
-        title: (input.title ?? source.title).trim().slice(0, 200),
-        artist: input.artist?.trim() || source.artist || null,
+        title: source.title.trim().slice(0, 200),
+        artist: source.artist?.trim() || null,
         durationSec: source.durationSec ?? null,
         thumbnailUrl: source.thumbnailUrl ?? null,
+        attributionUrl: source.attributionUrl ?? null,
+        licenseUrl: source.licenseUrl ?? null,
         available: true,
       };
       const index =
         input.at.mode === 'head' ? 0 : input.at.mode === 'tail' ? list.size : input.at.index;
       list.insertAt(index, track.id, track);
       await client.query(
-        `INSERT INTO tracks (id, playlist_id, position, provider, source_id, source_url, title, artist, duration_sec, thumbnail_url)
-         VALUES ($1, $2, 0, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO tracks (id, playlist_id, position, provider, source_id, source_url, title, artist, duration_sec, thumbnail_url, attribution_url, license_url)
+         VALUES ($1, $2, 0, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           track.id,
           playlistId,
@@ -163,6 +166,8 @@ export class PlaylistService {
           track.artist,
           track.durationSec,
           track.thumbnailUrl,
+          track.attributionUrl,
+          track.licenseUrl,
         ],
       );
       await this.persistOrder(client, list);
@@ -254,7 +259,7 @@ export class PlaylistService {
     playlistId: string,
   ): Promise<DoublyLinkedList<Track>> {
     const result = await client.query<TrackRow>(
-      `SELECT id, playlist_id, position, provider, source_id, source_url, title, artist, duration_sec, thumbnail_url
+      `SELECT id, playlist_id, position, provider, source_id, source_url, title, artist, duration_sec, thumbnail_url, attribution_url, license_url
          FROM tracks WHERE playlist_id = $1 ORDER BY position FOR UPDATE`,
       [playlistId],
     );
@@ -351,6 +356,8 @@ export class PlaylistService {
       artist: row.artist,
       durationSec: row.duration_sec,
       thumbnailUrl: row.thumbnail_url,
+      attributionUrl: row.attribution_url,
+      licenseUrl: row.license_url,
       available: true,
     };
   }

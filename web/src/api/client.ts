@@ -1,13 +1,14 @@
 import {
+  CatalogSearchResponseSchema,
+  CatalogStatusSchema,
   ErrorResponseSchema,
   PlaylistSchema,
   PlaylistSummarySchema,
-  ResolveRequestSchema,
-  ResolveResponseSchema,
   type AddTrackRequest,
+  type CatalogSearchResponse,
+  type CatalogStatus,
   type Playlist,
   type PlaylistSummary,
-  type ResolvedTrackSource,
 } from '@reproductor/shared';
 import { z } from 'zod';
 
@@ -82,12 +83,12 @@ export const api = {
   async deletePlaylist(id: string): Promise<void> {
     await request(`/api/playlists/${encodeURIComponent(id)}`, z.void(), { method: 'DELETE' });
   },
-  resolve(url: string, allowExtensionless: boolean): Promise<ResolvedTrackSource> {
-    const body = ResolveRequestSchema.parse({ url, allowExtensionless });
-    return request('/api/resolve', ResolveResponseSchema, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+  catalogStatus(): Promise<CatalogStatus> {
+    return request('/api/catalog/status', CatalogStatusSchema);
+  },
+  searchCatalog(query: string): Promise<CatalogSearchResponse> {
+    const params = new URLSearchParams({ q: query });
+    return request(`/api/catalog/search?${params.toString()}`, CatalogSearchResponseSchema);
   },
   addTrack(
     playlistId: string,

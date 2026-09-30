@@ -15,6 +15,8 @@ const track: Track = {
   artist: 'Artista externo',
   durationSec: 94,
   thumbnailUrl: null,
+  attributionUrl: null,
+  licenseUrl: null,
   available: true,
 };
 const otherTrack: Track = {
@@ -27,6 +29,37 @@ const otherTrack: Track = {
 afterEach(cleanup);
 
 describe('QueuePanel', () => {
+  it('credits each Jamendo track and links to its source page', () => {
+    const jamendoTrack: Track = {
+      ...track,
+      provider: 'jamendo',
+      sourceId: '1848357',
+      sourceUrl: 'https://www.jamendo.com/track/1848357',
+      attributionUrl: 'https://www.jamendo.com/track/1848357',
+      licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+    };
+    render(
+      <QueuePanel
+        playlistName="Lista personal"
+        tracks={[jamendoTrack]}
+        currentTrackId={jamendoTrack.id}
+        unavailableIds={new Set()}
+        open={false}
+        mobileViewport={false}
+        onClose={() => undefined}
+        onAdd={() => undefined}
+        onPlay={() => undefined}
+        onMove={() => undefined}
+        onRemove={() => undefined}
+      />,
+    );
+
+    const attributionLink = screen.getByRole('link', {
+      name: /Abrir la ficha de Pista externa en Jamendo/,
+    });
+    expect(attributionLink.getAttribute('href')).toBe('https://www.jamendo.com/track/1848357');
+  });
+
   it('renders the queue and exposes accessible play, move, and remove actions', () => {
     const onPlay = vi.fn();
     const onMove = vi.fn();

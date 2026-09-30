@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { AddTrackRequest, Playlist, ResolvedTrackSource } from '@reproductor/shared';
+import type { AddTrackRequest, CatalogTrack, Playlist } from '@reproductor/shared';
 import { api } from '../api/client.js';
 import { Icon } from './Icon.js';
 
@@ -14,80 +14,98 @@ interface AddTrackDialogProps {
 
 export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [url, setUrl] = useState('');
-  const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
-  const [allowExtensionless, setAllowExtensionless] = useState(false);
+  const [catalogEnabled, setCatalogEnabled] = useState<boolean | null>(null);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<CatalogTrack[]>([]);
+  const [selected, setSelected] = useState<CatalogTrack | null>(null);
   const [placement, setPlacement] = useState<'head' | 'tail' | 'index'>('tail');
   const [index, setIndex] = useState(1);
-  const [resolved, setResolved] = useState<ResolvedTrackSource | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const previewRequest = useRef(0);
+  const statusRequest = useRef(0);
+  const searchRequest = useRef(0);
 
   useEffect(() => {
     if (open && !dialogRef.current?.open) dialogRef.current?.showModal();
     if (!open && dialogRef.current?.open) dialogRef.current.close();
-  }, [open]);
-
-  useEffect(() => {
-    previewRequest.current += 1;
+    statusRequest.current += 1;
+    searchRequest.current += 1;
     if (!open) return;
-    setUrl('');
-    setTitle('');
-    setArtist('');
-    setAllowExtensionless(false);
+
+    setCatalogEnabled(null);
+    setQuery('');
+    setResults([]);
+    setSelected(null);
     setPlacement('tail');
     setIndex((playlist?.trackCount ?? 0) + 1);
-    setResolved(null);
-    setLoadingPreview(false);
+    setLoadingStatus(true);
+    setSearching(false);
+    setSaving(false);
     setError(null);
+
+    const requestId = statusRequest.current;
+    void api
+      .catalogStatus()
+      .then((status) => {
+        if (statusRequest.current === requestId) setCatalogEnabled(status.enabled);
+      })
+      .catch((statusError: unknown) => {
+        if (statusRequest.current === requestId) {
+          setCatalogEnabled(false);
+          setError(statusError instanceof Error ? statusError.message : 'No se pudo conectar.');
+        }
+      })
+      .finally(() => {
+        if (statusRequest.current === requestId) setLoadingStatus(false);
+      });
   }, [open, playlist?.id, playlist?.trackCount]);
 
-  function invalidatePreview(): void {
-    previewRequest.current += 1;
-    setLoadingPreview(false);
-    setResolved(null);
-    setError(null);
-  }
-
   function close(): void {
-    invalidatePreview();
+    statusRequest.current += 1;
+    searchRequest.current += 1;
     onClose();
   }
 
-  async function preview(): Promise<void> {
-    const requestId = ++previewRequest.current;
-    const requestedUrl = url;
-    const requestedAllowExtensionless = allowExtensionless;
-    setLoadingPreview(true);
-    setResolved(null);
+  function changeQuery(value: string): void {
+    searchRequest.current += 1;
+    setQuery(value);
+    setResults([]);
+    setSelected(null);
+    setSearching(false);
+    setError(null);
+  }
+
+  async function search(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const searchTerm = query.trim();
+    if (searchTerm.length < 2) {
+      setError('Escribe al menos dos caracteres para buscar.');
+      return;
+    }
+    const requestId = ++searchRequest.current;
+    setSearching(true);
+    setResults([]);
+    setSelected(null);
     setError(null);
     try {
-      const result = await api.resolve(requestedUrl, requestedAllowExtensionless);
-      if (previewRequest.current !== requestId) return;
-      setResolved(result);
-      setTitle(result.title);
-      setArtist(result.artist ?? '');
-    } catch (previewError) {
-      if (previewRequest.current !== requestId) return;
-      setError(
-        previewError instanceof Error ? previewError.message : 'No se pudo revisar el enlace.',
-      );
+      const response = await api.searchCatalog(searchTerm);
+      if (searchRequest.current === requestId) setResults(response.tracks);
+    } catch (searchError) {
+      if (searchRequest.current === requestId) {
+        setError(
+          searchError instanceof Error ? searchError.message : 'No se pudo buscar en Jamendo.',
+        );
+      }
     } finally {
-      if (previewRequest.current === requestId) setLoadingPreview(false);
+      if (searchRequest.current === requestId) setSearching(false);
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!playlist || !resolved) {
-      setError('Revisa el enlace antes de agregar la pista.');
-      return;
-    }
-    if (!title.trim()) {
-      setError('Escribe un título para la pista.');
+  async function submit(): Promise<void> {
+    if (!playlist || !selected) {
+      setError('Elige una pista del catálogo antes de agregarla.');
       return;
     }
     const at =
@@ -98,11 +116,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setError(null);
     try {
       await onAdd({
-        url,
-        title: title.trim(),
-        ...(artist.trim() ? { artist: artist.trim() } : {}),
-        allowExtensionless,
-        resolved,
+        catalogTrackId: selected.id,
         at,
         expectedRevision: playlist.revision,
       });
@@ -124,91 +138,116 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
         close();
       }}
     >
-      <form onSubmit={(event) => void submit(event)}>
+      <div>
         <div className="dialog-header">
           <div>
-            <h2 id="add-track-title">Agregar una pista</h2>
-            <p className="dialog-intro">La música se reproduce desde su fuente original.</p>
+            <h2 id="add-track-title">Buscar música</h2>
+            <p className="dialog-intro">Encuentra canciones independientes en Jamendo.</p>
           </div>
           <button className="icon-button" type="button" onClick={close} aria-label="Cerrar">
             <Icon name="close" />
           </button>
         </div>
 
-        <label className="field-label" htmlFor="track-url">
-          Enlace de YouTube o audio directo
-        </label>
-        <div className="url-entry">
-          <input
-            id="track-url"
-            className="text-input"
-            type="url"
-            autoFocus
-            required
-            value={url}
-            onChange={(event) => {
-              setUrl(event.target.value);
-              invalidatePreview();
-            }}
-            placeholder="Pega aquí el enlace"
-            aria-describedby="source-help"
-          />
-          <button
-            className="button button-quiet preview-button"
-            type="button"
-            disabled={!url.trim() || loadingPreview}
-            onClick={() => void preview()}
-          >
-            {loadingPreview ? 'Revisando…' : 'Vista previa'}
-          </button>
-        </div>
-        <p className="field-hint" id="source-help">
-          Usa un enlace HTTPS a un archivo compatible si agregas audio directo.
-        </p>
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={allowExtensionless}
-            onChange={(event) => {
-              setAllowExtensionless(event.target.checked);
-              invalidatePreview();
-            }}
-          />
-          <span>El enlace de audio no tiene extensión de archivo</span>
-        </label>
-
-        {resolved && (
-          <div className="track-preview" aria-live="polite">
-            {resolved.thumbnailUrl ? (
-              <img src={resolved.thumbnailUrl} alt="" loading="lazy" />
-            ) : (
-              <div className="preview-mark" aria-hidden="true">
-                <Icon name="music" size={22} />
+        {loadingStatus ? (
+          <p className="catalog-status" role="status">
+            Conectando con el catálogo…
+          </p>
+        ) : catalogEnabled ? (
+          <>
+            <form className="catalog-search-form" onSubmit={(event) => void search(event)}>
+              <label className="field-label" htmlFor="catalog-query">
+                Canción o artista
+              </label>
+              <div className="url-entry">
+                <input
+                  id="catalog-query"
+                  className="text-input"
+                  type="search"
+                  autoFocus
+                  value={query}
+                  onChange={(event) => changeQuery(event.target.value)}
+                  placeholder="Buscar en el catálogo"
+                  autoComplete="off"
+                />
+                <button
+                  className="button button-quiet preview-button"
+                  type="submit"
+                  disabled={query.trim().length < 2 || searching}
+                >
+                  {searching ? 'Buscando…' : 'Buscar'}
+                </button>
               </div>
+            </form>
+            <p className="field-hint" id="catalog-help">
+              El catálogo incluye artistas independientes. Cada pista conserva su crédito y
+              licencia.
+            </p>
+
+            {results.length > 0 && (
+              <ul
+                className="catalog-results"
+                aria-label="Resultados de búsqueda"
+                aria-live="polite"
+              >
+                {results.map((track) => (
+                  <li className="catalog-result" key={track.id}>
+                    <button
+                      className="catalog-result-select"
+                      type="button"
+                      aria-pressed={selected?.id === track.id}
+                      onClick={() => setSelected(track)}
+                    >
+                      {track.thumbnailUrl ? (
+                        <img src={track.thumbnailUrl} alt="" loading="lazy" />
+                      ) : (
+                        <span className="catalog-result-mark" aria-hidden="true">
+                          <Icon name="music" size={19} />
+                        </span>
+                      )}
+                      <span className="catalog-result-copy">
+                        <strong>{track.title}</strong>
+                        <span>{track.artist}</span>
+                        <span className="catalog-license">Creative Commons</span>
+                      </span>
+                      <span
+                        className="catalog-result-duration"
+                        aria-label={`Duración ${formatDuration(track.durationSec)}`}
+                      >
+                        {formatDuration(track.durationSec)}
+                      </span>
+                    </button>
+                    <div className="catalog-result-links">
+                      <a href={track.licenseUrl} target="_blank" rel="noreferrer">
+                        Ver licencia
+                      </a>
+                      <a href={track.attributionUrl} target="_blank" rel="noreferrer">
+                        Ficha de la pista
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-            <div className="track-preview-fields">
-              <label className="field-label" htmlFor="track-title">
-                Título
-              </label>
-              <input
-                id="track-title"
-                className="text-input"
-                value={title}
-                maxLength={200}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-              />
-              <label className="field-label" htmlFor="track-artist">
-                Artista
-              </label>
-              <input
-                id="track-artist"
-                className="text-input"
-                value={artist}
-                maxLength={200}
-                onChange={(event) => setArtist(event.target.value)}
-              />
-            </div>
+            {!searching && query.trim().length >= 2 && results.length === 0 && !error && (
+              <p className="catalog-status" role="status">
+                No se encontraron pistas. Prueba con otro título o artista.
+              </p>
+            )}
+
+            {selected && (
+              <p className="selected-track" aria-live="polite">
+                Seleccionada: <strong>{selected.title}</strong> · {selected.artist}
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="catalog-status catalog-not-configured" role="status">
+            <h3>El catálogo no está conectado</h3>
+            <p>
+              Configura <code>JAMENDO_CLIENT_ID</code> en el servidor para activar la búsqueda. Los
+              pasos están en el README.
+            </p>
           </div>
         )}
 
@@ -248,14 +287,23 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
           </p>
         )}
         <div className="dialog-actions">
-          <button className="button button-quiet" type="button" onClick={onClose}>
+          <button className="button button-quiet" type="button" onClick={close}>
             Cancelar
           </button>
-          <button className="button button-primary" type="submit" disabled={!resolved || saving}>
+          <button
+            className="button button-primary"
+            type="button"
+            disabled={!catalogEnabled || !selected || saving}
+            onClick={() => void submit()}
+          >
             {saving ? 'Agregando…' : 'Agregar a la playlist'}
           </button>
         </div>
-      </form>
+      </div>
     </dialog>
   );
+}
+
+function formatDuration(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }

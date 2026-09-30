@@ -5,6 +5,7 @@ const EnvironmentSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_URL: z.string().url(),
   COOKIE_SECRET: z.string().min(32),
+  JAMENDO_CLIENT_ID: z.string().trim().min(1).optional(),
   MAX_PLAYLISTS_PER_OWNER: z.coerce.number().int().positive().default(50),
   MAX_TRACKS_PER_PLAYLIST: z.coerce.number().int().positive().default(500),
   BODY_LIMIT_BYTES: z.coerce.number().int().positive().max(16_384).default(16_384),

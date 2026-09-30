@@ -10,22 +10,21 @@ import type { Pool } from 'pg';
 import type { AppConfig } from './config.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
+import { catalogRoutes } from './routes/catalog.js';
 import { playlistRoutes } from './routes/playlists.js';
-import { resolveRoutes } from './routes/resolve.js';
-import { MetadataService } from './services/metadata-service.js';
+import { JamendoService } from './services/jamendo-service.js';
 import { PlaylistService } from './services/playlist-service.js';
-import { SourceUrlError } from '@reproductor/shared';
 
 export interface BuildAppOptions {
   config: AppConfig;
   pool: Pool;
-  metadata?: MetadataService;
+  jamendo?: JamendoService;
 }
 
 export async function buildApp({
   config,
   pool,
-  metadata = new MetadataService(),
+  jamendo = new JamendoService(config.JAMENDO_CLIENT_ID),
 }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: config.NODE_ENV !== 'test',
@@ -43,9 +42,6 @@ export async function buildApp({
           ...(error.details === undefined ? {} : { details: error.details }),
         },
       });
-    }
-    if (error instanceof SourceUrlError) {
-      return reply.code(400).send({ error: { code: error.code, message: error.message } });
     }
     if (error instanceof ZodError) {
       return reply.code(400).send({
@@ -91,7 +87,7 @@ export async function buildApp({
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", 'https://www.youtube.com', 'https://s.ytimg.com'],
         frameSrc: ['https://www.youtube.com', 'https://www.youtube-nocookie.com'],
-        imgSrc: ["'self'", 'data:', 'https://i.ytimg.com'],
+        imgSrc: ["'self'", 'data:', 'https://i.ytimg.com', 'https://usercontent.jamendo.com'],
         mediaSrc: ['https:'],
         connectSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
@@ -111,11 +107,15 @@ export async function buildApp({
     }),
   });
   await app.register(healthRoutes, { prefix: '/api', pool });
-  await app.register(resolveRoutes, { prefix: '/api', metadata });
+  await app.register(catalogRoutes, {
+    prefix: '/api',
+    service: jamendo,
+    enabled: Boolean(config.JAMENDO_CLIENT_ID),
+  });
   await app.register(playlistRoutes, {
     prefix: '/api',
     service: playlistService,
-    metadata,
+    jamendo,
     config,
   });
 

@@ -20,7 +20,10 @@ export class AudioEngine implements PlayerEngine {
   async load(track: Track): Promise<void> {
     this.cancelPendingLoad?.();
     this.cancelPendingLoad = null;
-    this.audio.src = track.sourceUrl;
+    this.audio.src =
+      track.provider === 'jamendo'
+        ? `/api/catalog/stream/${encodeURIComponent(track.sourceId)}`
+        : track.sourceUrl;
     this.audio.load();
     if (this.audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
       this.emitReady();
