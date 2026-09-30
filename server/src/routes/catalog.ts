@@ -22,7 +22,7 @@ export const catalogRoutes: FastifyPluginAsync<{
         throw new HttpError(
           503,
           'catalog_not_configured',
-          'Instala las dependencias de Python del servidor para activar el catálogo.',
+          'La búsqueda no está disponible ahora. Inténtalo de nuevo en un momento.',
         );
       }
       return { tracks: await service.search(q) };

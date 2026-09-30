@@ -99,7 +99,7 @@ describe('usePlayer', () => {
     expect(result.current.isPlaying).toBe(true);
   });
 
-  it('restarts the current track for previous while repeat-one is active', async () => {
+  it('goes to the previous track when repeat-one is active and there is a previous item', async () => {
     const first = makeTrack('00000000-0000-4000-8000-000000000021', 'Primera');
     const second = makeTrack('00000000-0000-4000-8000-000000000022', 'Segunda');
     const tracks = [first, second];
@@ -115,10 +115,32 @@ describe('usePlayer', () => {
 
     act(() => result.current.previous());
 
-    expect(engine.seekTo).toBe(0);
-    expect(engine.loadedTrack?.id).toBe(second.id);
-    expect(result.current.currentTrack?.id).toBe(second.id);
+    await waitFor(() => expect(engine.playCount).toBe(2));
+    expect(engine.loadedTrack?.id).toBe(first.id);
+    expect(result.current.currentTrack?.id).toBe(first.id);
     expect(result.current.repeatMode).toBe('one');
+  });
+
+  it('restarts the current track at the queue head when repeat-one is active', async () => {
+    const onlyTrack = makeTrack('00000000-0000-4000-8000-000000000024', 'Única');
+    const tracks = [onlyTrack];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    act(() => result.current.toggleRepeat());
+    act(() => result.current.toggleRepeat());
+    act(() => result.current.togglePlay());
+    await waitFor(() => expect(engine.playCount).toBe(1));
+    act(() => engine.events.emit('timeupdate', { currentTime: 2, duration: 120 }));
+
+    act(() => result.current.previous());
+
+    expect(engine.seekTo).toBe(0);
+    expect(engine.pauseCount).toBe(0);
+    expect(result.current.currentTrack?.id).toBe(onlyTrack.id);
+    expect(result.current.repeatMode).toBe('one');
+    expect(result.current.isPlaying).toBe(true);
   });
 
   it('pauses YouTube playback when the document becomes hidden', async () => {

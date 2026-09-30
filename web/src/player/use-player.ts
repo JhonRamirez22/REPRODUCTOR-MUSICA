@@ -369,12 +369,8 @@ export function usePlayer(
       return;
     }
     const cursor = cursorRef.current;
-    // Repeat-one keeps the cursor on the current item. At the queue head,
-    // repeat-off has no previous node, so restart this track in place.
-    if (
-      cursor?.repeatMode === 'one' ||
-      (cursor?.repeatMode === 'off' && cursor.current && !cursor.current.prev)
-    ) {
+    // Manual previous bypasses repeat-one in advance; keep the queue head playing in place.
+    if (cursor?.current && !cursor.current.prev && cursor.repeatMode !== 'all') {
       engineRef.current?.engine.seek(0);
       setCurrentTime(0);
       return;

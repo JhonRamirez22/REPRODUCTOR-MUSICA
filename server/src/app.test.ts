@@ -83,7 +83,7 @@ describe('Fastify API', () => {
     expect(pastedLink.json()).toMatchObject({ error: { code: 'validation_error' } });
   });
 
-  it('reports a clear dependency error when the catalog runtime is unavailable', async () => {
+  it('returns a user-facing error when the catalog runtime is unavailable', async () => {
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
@@ -102,9 +102,10 @@ describe('Fastify API', () => {
     expect(response.json()).toMatchObject({
       error: {
         code: 'catalog_not_configured',
-        message: expect.stringContaining('Python'),
+        message: 'La búsqueda no está disponible ahora. Inténtalo de nuevo en un momento.',
       },
     });
+    expect(response.body).not.toContain('Python');
     expect(response.body).not.toContain('stack');
   });
 });

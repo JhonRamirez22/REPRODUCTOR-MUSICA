@@ -6,7 +6,7 @@ Actualizada el 30 de septiembre de 2026 tras integrar la búsqueda pública de Y
 
 - `npm run lint`: correcto; ESLint y Prettier pasaron.
 - `npm run typecheck`: correcto en `shared`, `server` y `web`.
-- `TEST_DATABASE_URL= npm run check`: correcto; **41 pruebas pasaron y 3 pruebas de integración con PostgreSQL se omitieron** porque no había una base de prueba disponible en el sandbox.
+- `TEST_DATABASE_URL=<PostgreSQL temporal> npm run check`: correcto; **45 pruebas pasaron**, incluidas las 3 pruebas de integración con PostgreSQL.
 - `npm run build`: correcto. El bundle web quedó en 335.36 kB (97.73 kB gzip) de JavaScript y 25.92 kB (5.75 kB gzip) de CSS.
 - `impeccable detect --json web/src`: `[]`, sin hallazgos.
 
@@ -25,12 +25,14 @@ Actualizada el 30 de septiembre de 2026 tras integrar la búsqueda pública de Y
 - Contraste calculado: texto principal 16.47:1 en oscuro y 14.25:1 en claro; texto secundario 6.39:1 y 6.44:1; texto del botón acento 6.67:1 y 5.46:1.
 - La crítica de interfaz encontró y corrigió mensajes internos de configuración, CTA incorrecta cuando no existen playlists, validación del índice y falta de pista visible de atajos.
 - La CLI de Impeccable instalada no incluye comandos `audit`, `critique` ni `polish`; se usaron las guías de la skill y dos revisiones independientes, además del detector disponible.
-- No se incorpora captura al README, según la decisión del usuario. No se obtuvo una puntuación Lighthouse: el ejecutable no está instalado y Chrome no estuvo disponible para la medición automatizada.
+- Lighthouse móvil: **Accesibilidad 100 y Buenas prácticas 100**. La captura no se incorpora al README, según la decisión del usuario.
 
-## Pruebas no verificadas en esta sesión
+## Despliegue local
 
-- `docker build` no se pudo ejecutar: el sandbox no permitió acceso al socket local de Docker. Tampoco se pudo repetir la integración PostgreSQL contra una instancia viva ni iniciar el contenedor contra esa base.
-- El acceso puntual a red y al socket de Docker solicitado para completar esas verificaciones no quedó concedido.
+- `docker build --tag reproductor-estructuras-datos .`: correcto. La imagen multi-stage instaló `ytmusicapi` y compiló shared, web y server.
+- La imagen arrancó conectada a la base PostgreSQL temporal. `/api/health` devolvió `200`, `/api/catalog/status` devolvió `{ "enabled": true }` y la búsqueda real de YouTube Music devolvió resultados.
+- Prueba HTTP de extremo a extremo: cookie de propietario, creación de playlist, búsqueda real, alta validada por el servidor, recarga con la pista persistida y borrado de la playlist temporal.
+- La aplicación queda abierta en `http://localhost:4300` para revisión. Usa una base `tmpfs` de pruebas: los datos desaparecen al detener los contenedores.
 
 ## Límites y despliegue
 
