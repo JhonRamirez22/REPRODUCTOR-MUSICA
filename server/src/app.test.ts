@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
-import { JamendoService } from './services/jamendo-service.js';
+import { YtMusicService } from './services/ytmusic-service.js';
 
 const pool = new Pool({
   connectionString: 'postgres://test:test@127.0.0.1:1/test',
@@ -22,66 +22,68 @@ afterAll(async () => {
 });
 
 describe('Fastify API', () => {
-  it('exposes catalog configuration without returning its credentials', async () => {
+  it('exposes the public YouTube Music catalog and verifies selections server-side', async () => {
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
         DATABASE_URL: 'postgres://test:test@127.0.0.1:1/test',
         COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
-        RATE_LIMIT_MAX: '120',
-        JAMENDO_CLIENT_ID: 'server-only-client-id',
       }),
       pool,
-      jamendo: new JamendoService('server-only-client-id', async (input) => {
-        const url = new URL(String(input));
-        if (url.pathname.endsWith('/file/')) {
-          return new Response(null, {
-            status: 302,
-            headers: { location: 'https://prod-1.storage.jamendo.com/?trackid=1848357' },
-          });
-        }
-        return new Response(
-          JSON.stringify({
-            headers: { status: 'success', code: 0, error_message: '' },
-            results: [
+      catalog: new YtMusicService('python3', async ({ action }) =>
+        action === 'check'
+          ? { ready: true }
+          : [
               {
-                id: '1848357',
-                name: 'Mañana será tarde',
-                artist_name: 'Fankel',
-                duration: 272,
-                image: 'https://usercontent.jamendo.com/cover.jpg',
-                license_ccurl: 'http://creativecommons.org/licenses/by-nc-nd/3.0/',
+                videoId: 'dQw4w9WgXcQ',
+                title: 'Mañana será tarde',
+                artist: 'Fankel',
+                durationSec: 272,
+                thumbnailUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
               },
             ],
-          }),
-          { status: 200 },
-        );
-      }),
+      ),
     });
 
-    const response = await app.inject({
-      method: 'GET',
-      url: '/api/catalog/status',
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ enabled: true });
-    expect(response.body).not.toContain('server-only-client-id');
+    const status = await app.inject({ method: 'GET', url: '/api/catalog/status' });
+    expect(status.statusCode).toBe(200);
+    expect(status.json()).toEqual({ enabled: true });
 
     const search = await app.inject({ method: 'GET', url: '/api/catalog/search?q=Fankel' });
     expect(search.statusCode).toBe(200);
     expect(search.json()).toMatchObject({
-      tracks: [{ id: '1848357', title: 'Mañana será tarde', artist: 'Fankel' }],
+      tracks: [{ id: 'dQw4w9WgXcQ', title: 'Mañana será tarde', artist: 'Fankel' }],
     });
-    expect(search.body).not.toContain('server-only-client-id');
 
-    const stream = await app.inject({ method: 'GET', url: '/api/catalog/stream/1848357' });
-    expect(stream.statusCode).toBe(302);
-    expect(stream.headers.location).toBe('https://prod-1.storage.jamendo.com/?trackid=1848357');
-    expect(stream.body).not.toContain('server-only-client-id');
+    const forgedSelection = await app.inject({
+      method: 'POST',
+      url: '/api/playlists/00000000-0000-4000-8000-000000000001/tracks',
+      payload: {
+        query: 'Fankel',
+        videoId: 'aaaaaaaaaaa',
+        at: { mode: 'tail' },
+        expectedRevision: 0,
+      },
+    });
+    expect(forgedSelection.statusCode).toBe(404);
+    expect(forgedSelection.json()).toMatchObject({
+      error: { code: 'catalog_track_not_found' },
+    });
+
+    const pastedLink = await app.inject({
+      method: 'POST',
+      url: '/api/playlists/00000000-0000-4000-8000-000000000001/tracks',
+      payload: {
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        at: { mode: 'tail' },
+        expectedRevision: 0,
+      },
+    });
+    expect(pastedLink.statusCode).toBe(400);
+    expect(pastedLink.json()).toMatchObject({ error: { code: 'validation_error' } });
   });
 
-  it('reports a clear configuration error when the catalog is unavailable', async () => {
+  it('reports a clear dependency error when the catalog runtime is unavailable', async () => {
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
@@ -89,6 +91,9 @@ describe('Fastify API', () => {
         COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
       }),
       pool,
+      catalog: new YtMusicService('python3', async () => {
+        throw new Error('missing runtime');
+      }),
     });
 
     const response = await app.inject({ method: 'GET', url: '/api/catalog/search?q=ambient' });
@@ -97,7 +102,7 @@ describe('Fastify API', () => {
     expect(response.json()).toMatchObject({
       error: {
         code: 'catalog_not_configured',
-        message: expect.stringContaining('JAMENDO_CLIENT_ID'),
+        message: expect.stringContaining('Python'),
       },
     });
     expect(response.body).not.toContain('stack');

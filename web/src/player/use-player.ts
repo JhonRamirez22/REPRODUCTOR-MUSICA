@@ -111,8 +111,14 @@ export function usePlayer(
       });
       engine.on('error', () => handleErrorRef.current());
       engine.on('statechange', (payload) => {
-        if (payload === 'playing') setPlaying(true);
-        if (payload === 'paused' || payload === 'ended') setPlaying(false);
+        if (payload === 'playing') {
+          setIsLoading(false);
+          setPlaying(true);
+        }
+        if (payload === 'paused' || payload === 'ended') {
+          setIsLoading(false);
+          setPlaying(false);
+        }
         if (payload === 'buffering') setIsLoading(true);
       });
       engine.on('ready', () => setIsLoading(false));

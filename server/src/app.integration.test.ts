@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { migrate } from './db.js';
-import { JamendoService } from './services/jamendo-service.js';
+import { YtMusicService } from './services/ytmusic-service.js';
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 const enabled = Boolean(testDatabaseUrl);
@@ -32,35 +32,27 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
 
   it('keeps CRUD, insertion positions, ownership, and revision conflicts coherent over HTTP', async () => {
     if (!pool || !testDatabaseUrl) throw new Error('TEST_DATABASE_URL is required.');
-    const jamendo = new JamendoService('test-client-id', async (input) => {
-      const id = new URL(String(input)).searchParams.get('id') ?? '101';
-      const name = id === '102' ? 'Segunda' : 'Primera';
-      return new Response(
-        JSON.stringify({
-          headers: { status: 'success', code: 0, error_message: '' },
-          results: [
-            {
-              id,
-              name,
-              artist_name: 'Artista de prueba',
-              duration: 120,
-              image: 'https://usercontent.jamendo.com/cover.jpg',
-              license_ccurl: 'http://creativecommons.org/licenses/by/4.0/',
-            },
-          ],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
+    const catalog = new YtMusicService('python3', async ({ action, query }) => {
+      if (action === 'check') return { ready: true };
+      const second = query?.includes('Segunda');
+      return [
+        {
+          videoId: second ? 'BzNzgsAE4F0' : 'dQw4w9WgXcQ',
+          title: second ? 'Segunda' : 'Primera',
+          artist: 'Artista de prueba',
+          durationSec: 120,
+          thumbnailUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+        },
+      ];
     });
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
         DATABASE_URL: testDatabaseUrl,
         COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
-        JAMENDO_CLIENT_ID: 'test-client-id',
       }),
       pool,
-      jamendo,
+      catalog,
     });
 
     const created = await app.inject({
@@ -97,7 +89,8 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        catalogTrackId: '101',
+        query: 'Primera',
+        videoId: 'dQw4w9WgXcQ',
         at: { mode: 'index', index: 1 },
         expectedRevision: 0,
       },
@@ -109,7 +102,8 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        catalogTrackId: '101',
+        query: 'Primera',
+        videoId: 'dQw4w9WgXcQ',
         at: { mode: 'tail' },
         expectedRevision: 0,
       },
@@ -123,7 +117,8 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        catalogTrackId: '102',
+        query: 'Segunda',
+        videoId: 'BzNzgsAE4F0',
         at: { mode: 'tail' },
         expectedRevision: 0,
       },
@@ -136,7 +131,8 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       url: `/api/playlists/${playlist.id}/tracks`,
       headers: { cookie },
       payload: {
-        catalogTrackId: '102',
+        query: 'Segunda',
+        videoId: 'BzNzgsAE4F0',
         at: { mode: 'head' },
         expectedRevision: 1,
       },
@@ -147,7 +143,7 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
       tracks: Array<{ id: string; title: string }>;
     }>();
     expect(secondResult.revision).toBe(2);
-    expect(secondResult.tracks.map((track) => track.title)).toEqual(['segunda', 'primera']);
+    expect(secondResult.tracks.map((track) => track.title)).toEqual(['Segunda', 'Primera']);
 
     const moved = await app.inject({
       method: 'PATCH',
@@ -158,7 +154,7 @@ describe.skipIf(!enabled)('Playlist API with PostgreSQL', () => {
     expect(moved.statusCode).toBe(200);
     expect(moved.json()).toMatchObject({
       revision: 3,
-      tracks: [{ title: 'primera' }, { title: 'segunda' }],
+      tracks: [{ title: 'Primera' }, { title: 'Segunda' }],
     });
 
     const renamed = await app.inject({

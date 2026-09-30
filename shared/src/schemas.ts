@@ -3,13 +3,13 @@ import { z } from 'zod';
 export const ProviderSchema = z.enum(['youtube', 'audio', 'jamendo']);
 
 export const CatalogTrackSchema = z.object({
-  id: z.string().regex(/^\d{1,20}$/),
+  id: z.string().min(1).max(32),
   title: z.string().trim().min(1).max(200),
   artist: z.string().trim().max(200),
-  durationSec: z.number().int().nonnegative(),
+  durationSec: z.number().int().nonnegative().nullable(),
   thumbnailUrl: z.string().url().nullable(),
   attributionUrl: z.string().url(),
-  licenseUrl: z.string().url(),
+  licenseUrl: z.string().url().optional(),
 });
 
 export const CatalogStatusSchema = z.object({ enabled: z.boolean() });
@@ -50,13 +50,13 @@ export const CreatePlaylistRequestSchema = z.object({
 export const RenamePlaylistRequestSchema = CreatePlaylistRequestSchema;
 
 export const ResolvedCatalogTrackSchema = z.object({
-  provider: z.literal('jamendo'),
+  provider: z.enum(['youtube', 'jamendo']),
   sourceId: z.string().min(1),
   sourceUrl: z.string().url(),
   title: z.string().trim().min(1).max(200),
   artist: z.string().trim().max(200).optional(),
   thumbnailUrl: z.string().url().optional(),
-  durationSec: z.number().int().nonnegative().optional(),
+  durationSec: z.number().int().nonnegative().nullable().optional(),
   attributionUrl: z.string().url().optional(),
   licenseUrl: z.string().url().optional(),
 });
@@ -68,7 +68,8 @@ export const InsertAtSchema = z.discriminatedUnion('mode', [
 ]);
 
 export const AddTrackRequestSchema = z.object({
-  catalogTrackId: z.string().regex(/^\d{1,20}$/),
+  query: z.string().trim().min(2).max(100),
+  videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
   at: InsertAtSchema,
   expectedRevision: z.number().int().nonnegative(),
 });

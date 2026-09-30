@@ -27,13 +27,13 @@ describe.skipIf(!enabled)('PlaylistService with PostgreSQL', () => {
     const playlist = await service.create(ownerId, 'Prueba de integración');
     try {
       const source = (title: string) => ({
-        provider: 'jamendo' as const,
-        sourceId: title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103',
-        sourceUrl: `https://www.jamendo.com/track/${title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103'}`,
+        provider: 'youtube' as const,
+        sourceId:
+          title === 'Primera' ? 'dQw4w9WgXcQ' : title === 'Segunda' ? 'BzNzgsAE4F0' : 'aqz-KE-bpKQ',
+        sourceUrl: `https://www.youtube.com/watch?v=${title === 'Primera' ? 'dQw4w9WgXcQ' : title === 'Segunda' ? 'BzNzgsAE4F0' : 'aqz-KE-bpKQ'}`,
         title,
         artist: 'Artista de prueba',
-        attributionUrl: `https://www.jamendo.com/track/${title === 'Primera' ? '101' : title === 'Segunda' ? '102' : '103'}`,
-        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        attributionUrl: `https://www.youtube.com/watch?v=${title === 'Primera' ? 'dQw4w9WgXcQ' : title === 'Segunda' ? 'BzNzgsAE4F0' : 'aqz-KE-bpKQ'}`,
       });
       const first = await service.addTrack(
         ownerId,
@@ -139,13 +139,12 @@ describe.skipIf(!enabled)('PlaylistService with PostgreSQL', () => {
         code: 'not_found',
       });
       const source = {
-        provider: 'jamendo' as const,
-        sourceId: '101',
-        sourceUrl: 'https://www.jamendo.com/track/101',
+        provider: 'youtube' as const,
+        sourceId: 'dQw4w9WgXcQ',
+        sourceUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         title: 'Una pista',
         artist: 'Artista de prueba',
-        attributionUrl: 'https://www.jamendo.com/track/101',
-        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        attributionUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       };
       await limited.addTrack(
         ownerId,

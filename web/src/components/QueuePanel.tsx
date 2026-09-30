@@ -172,7 +172,7 @@ export function QueuePanel({
 }
 
 function providerLabel(provider: Track['provider']): string {
-  if (provider === 'youtube') return 'YouTube';
+  if (provider === 'youtube') return 'YouTube Music';
   if (provider === 'jamendo') return 'Jamendo';
   return 'Audio directo';
 }

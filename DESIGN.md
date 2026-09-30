@@ -2,15 +2,15 @@
 
 ## Dirección
 
-**Modo: Operate.** Una mesa de escucha personal con la claridad de un índice musical impreso: el video y la pista activa ocupan el escenario; la lista doble aparece como una secuencia legible y manipulable. El sistema se deriva del comportamiento real de la cola, no de un catálogo de demostración.
+**Modo: Operate.** Una mesa de escucha personal con la claridad de un índice musical impreso: la pista activa y su carátula real ocupan el escenario; la lista doble aparece como una secuencia legible y manipulable. El sistema se deriva del comportamiento real de la cola, no de un catálogo de demostración.
 
 ## Primera vista
 
-En escritorio, la pantalla se organiza en tres zonas estables: playlists a la izquierda, reproducción al centro y cola a la derecha. La pista activa y el reproductor visible de YouTube dominan el centro. En móvil, la navegación se compacta arriba, el contenido pasa a una columna y los controles del reproductor quedan fijos abajo; la cola se abre como panel inferior.
+En escritorio, la pantalla se organiza en tres zonas estables: playlists a la izquierda, reproducción al centro y cola a la derecha. El video visible de YouTube, el título y los controles dominan el centro. En móvil, la navegación se compacta arriba, el contenido pasa a una columna y los controles quedan fijos abajo; la cola se abre como panel inferior.
 
 ## Recorrido
 
-Crear una playlist, buscar una canción o artista en el catálogo, elegir un resultado y su posición, y reproducir. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa. El estado vacío invita a buscar una pista sin mostrar música de ejemplo.
+Crear una playlist, buscar una canción o artista en YouTube Music, elegir un resultado y su posición, y reproducirlo en el video visible. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa. El estado vacío invita a buscar una pista sin mostrar música de ejemplo.
 
 ## Interacción distintiva
 
@@ -34,4 +34,4 @@ Foco visible, etiquetas en botones de icono, controles nativos, objetivos tácti
 
 ## Límites
 
-No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No ocultar el video de YouTube, no usar degradados decorativos, brillos, emojis, tarjetas anidadas ni controles solo por arrastre. El contenido de terceros se representa desde sus metadatos o miniaturas reales.
+No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No aceptar enlaces de música introducidos manualmente; las pistas se descubren mediante `ytmusicapi`. No ocultar el reproductor de YouTube ni extraer audio. No usar degradados decorativos, brillos, emojis, tarjetas anidadas ni controles solo por arrastre. El contenido de terceros se representa desde sus metadatos o miniaturas reales.

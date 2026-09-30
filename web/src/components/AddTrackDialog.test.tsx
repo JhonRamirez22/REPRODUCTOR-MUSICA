@@ -20,13 +20,12 @@ const playlist: Playlist = {
 };
 
 const catalogTrack: CatalogTrack = {
-  id: '1848357',
+  id: 'dQw4w9WgXcQ',
   title: 'Mañana será tarde',
   artist: 'Fankel',
   durationSec: 272,
-  thumbnailUrl: 'https://usercontent.jamendo.com/cover.jpg',
-  attributionUrl: 'https://www.jamendo.com/track/1848357',
-  licenseUrl: 'https://creativecommons.org/licenses/by-nc-nd/3.0/',
+  thumbnailUrl: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
+  attributionUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 };
 
 function deferred<T>() {
@@ -77,7 +76,8 @@ describe('AddTrackDialog', () => {
 
     await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
     expect(onAdd).toHaveBeenCalledWith({
-      catalogTrackId: '1848357',
+      query: 'Fankel',
+      videoId: 'dQw4w9WgXcQ',
       at: { mode: 'index', index: 1 },
       expectedRevision: 2,
     });
@@ -86,7 +86,7 @@ describe('AddTrackDialog', () => {
 
   it('ignores results from a previous search after the query changes', async () => {
     const olderSearch = deferred<{ tracks: CatalogTrack[] }>();
-    const newerTrack = { ...catalogTrack, id: '12345', title: 'Pista nueva' };
+    const newerTrack = { ...catalogTrack, id: 'BzNzgsAE4F0', title: 'Pista nueva' };
     vi.mocked(api.searchCatalog)
       .mockReturnValueOnce(olderSearch.promise)
       .mockResolvedValueOnce({ tracks: [newerTrack] });
@@ -107,12 +107,12 @@ describe('AddTrackDialog', () => {
     expect(screen.getByRole('button', { name: /Pista nueva/ })).toBeTruthy();
   });
 
-  it('explains how to connect the catalog when the server has no credential', async () => {
+  it('explains how to connect the catalog when the Python dependency is unavailable', async () => {
     vi.mocked(api.catalogStatus).mockResolvedValue({ enabled: false });
     render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={vi.fn()} />);
 
     expect(await screen.findByText('El catálogo no está conectado')).toBeTruthy();
-    expect(screen.getByText(/JAMENDO_CLIENT_ID/)).toBeTruthy();
+    expect(screen.getByText(/server\/requirements\.txt/)).toBeTruthy();
     expect(screen.queryByLabelText('Canción o artista')).toBeNull();
   });
 });

@@ -12,7 +12,7 @@ Monorepo TypeScript con Node.js, Fastify, PostgreSQL, React y Vite, según el st
 
 ## Usuarios
 
-Inferido del taller: estudiantes que aprenden estructuras de datos y necesitan demostrar operaciones de playlist; también personas que organizan música desde un catálogo de artistas independientes.
+Inferido del taller: estudiantes que aprenden estructuras de datos y necesitan demostrar operaciones de playlist; también personas que organizan canciones desde un catálogo musical.
 
 ## Propósito
 
@@ -30,8 +30,8 @@ La persona busca una canción o artista en el catálogo, elige una pista, decide
 
 - La UI y la documentación del producto están en español; los identificadores del código están en inglés.
 - Las playlists y las pistas persisten en PostgreSQL. El audio no se sube ni se almacena.
-- La fuente de las pistas nuevas es el catálogo de Jamendo; se conserva un enlace a la página del artista y su licencia Creative Commons.
-- El video de YouTube permanece visible en un reproductor de al menos 200 × 200 px.
+- Las pistas nuevas se buscan mediante la biblioteca no oficial `ytmusicapi` y se vuelven a verificar en el servidor antes de agregarlas; la interfaz no acepta enlaces de música introducidos manualmente.
+- La reproducción usa el reproductor de video oficial y visible de YouTube. La app no descarga ni extrae audio.
 - El orden se implementa con una lista doblemente enlazada, nunca con un array como estructura de datos.
 - Se requieren accesibilidad, operación por teclado, diseño adaptable y estados explícitos de carga, vacío, error y éxito.
 - El despliegue queda preparado para Render y PostgreSQL administrado; la persona propietaria realiza la autenticación y el primer despliegue.
@@ -43,7 +43,7 @@ La persona busca una canción o artista en el catálogo, elige una pista, decide
 ## Principios de producto
 
 - Demostrar la estructura de datos mediante operaciones reales.
-- Permitir que cada persona traiga fuentes compatibles.
+- Permitir que cada persona encuentre canciones mediante la API pública de YouTube Music.
 - Mantener el audio en su proveedor de origen.
 - Conservar las playlists entre sesiones.
 - Hacer accesibles con teclado y controles táctiles las acciones del reproductor y la cola.

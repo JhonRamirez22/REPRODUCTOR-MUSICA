@@ -383,7 +383,7 @@ function App() {
       </div>
 
       <footer className="app-footer">
-        <span>El catálogo y las transmisiones de música son de Jamendo.</span>
+        <span>Catálogo de YouTube Music con reproducción oficial de YouTube.</span>
         <a href="/privacy.html">Privacidad</a>
       </footer>
 
@@ -400,7 +400,7 @@ function App() {
             <span className="mobile-player-artist">
               {player.currentTrack.artist ||
                 (player.currentTrack.provider === 'youtube'
-                  ? 'YouTube'
+                  ? 'YouTube Music'
                   : player.currentTrack.provider === 'jamendo'
                     ? 'Jamendo'
                     : 'Audio directo')}

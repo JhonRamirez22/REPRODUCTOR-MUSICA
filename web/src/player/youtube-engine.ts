@@ -75,6 +75,7 @@ function loadYouTubeApi(): Promise<YouTubeNamespace> {
 
 export class YouTubeEngine implements PlayerEngine {
   private readonly events = new EventEmitter();
+  private readonly host: HTMLDivElement;
   private player: YouTubePlayer | null = null;
   private poll: ReturnType<typeof setInterval> | null = null;
   private pendingLoadTimer: ReturnType<typeof setTimeout> | null = null;
@@ -83,7 +84,9 @@ export class YouTubeEngine implements PlayerEngine {
   private destroyed = false;
 
   constructor(private readonly container: HTMLElement) {
-    this.container.replaceChildren();
+    this.host = document.createElement('div');
+    this.host.className = 'youtube-player-host';
+    this.container.replaceChildren(this.host);
   }
 
   async load(track: Track): Promise<void> {
@@ -104,7 +107,7 @@ export class YouTubeEngine implements PlayerEngine {
         this.pendingReject = null;
         this.pendingLoad = null;
       }, 10_000);
-      const player = new api.Player(this.container, {
+      const player = new api.Player(this.host, {
         width: '100%',
         height: '100%',
         videoId: track.sourceId,

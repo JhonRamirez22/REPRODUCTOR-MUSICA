@@ -1,25 +1,25 @@
 # Revisión de calidad
 
-Actualizada el 30 de septiembre de 2026 para la integración del catálogo Jamendo.
+Actualizada el 30 de septiembre de 2026 para la búsqueda pública de YouTube Music y la reproducción mediante el reproductor oficial de YouTube.
 
 ## Construcción y pruebas
 
-- `npm run check`: correcto. ESLint, Prettier, TypeScript y pruebas: **30 pasaron; 3 pruebas PostgreSQL se omitieron** porque no existe `TEST_DATABASE_URL` y Docker no puede conectarse al socket local.
-- `npm run build`: correcto. El bundle web quedó en 333.50 kB (97.22 kB gzip) de JavaScript y 26.20 kB (5.81 kB gzip) de CSS. Incluye `/privacy.html`.
-- Las pruebas nuevas simulan la API de Jamendo. Verifican búsqueda, metadatos, enlace de licencia, ID verificado al insertar, redirección de streaming y que el `client_id` no llegue a la respuesta del navegador.
-- La migración `002_jamendo_catalog.sql` y la suite PostgreSQL requieren una ejecución cuando haya una base local disponible; no se atribuye a esta revisión una verificación de la migración en un servidor Postgres.
+- `npm run check`: correcto. ESLint, Prettier, TypeScript y **37 pruebas pasaron**, incluidas las pruebas de integración con PostgreSQL ejecutadas con una base temporal aislada.
+- `npm run build`: correcto. El bundle web quedó en 333.73 kB (97.28 kB gzip) de JavaScript y 25.68 kB (5.71 kB gzip) de CSS.
+- `server/python/search.py` consultó en vivo `ytmusicapi` con `Oasis Wonderwall` y devolvió 20 canciones válidas. También se comprobó `/api/catalog/search` en el servidor compilado.
+- La prueba manual en navegador buscó una canción, la agregó desde resultados, confirmó la persistencia y reprodujo el video en el iframe oficial de YouTube. Se verificó pausa desde los controles de la app; la playlist temporal usada para QA se eliminó al terminar.
+- Las pruebas automatizadas del catálogo simulan `ytmusicapi`; no dependen del servicio externo. Las pruebas PostgreSQL usan `TEST_DATABASE_URL` y no emplean la base de datos de producción.
 
 ## Interfaz y accesibilidad
 
-- Las pruebas de componentes verifican la búsqueda, selección, inserción en la posición elegida, resultados obsoletos ignorados, estado sin credencial y enlace de atribución de Jamendo en la cola.
-- La corrección anterior de accesibilidad móvil quedó en `46744be`: los paneles cerrados se excluyen del árbol accesible, se atrapa el foco en los abiertos y los controles táctiles pequeños miden al menos 44 × 44 px.
-- La pantalla principal se revisó antes de añadir el catálogo. El nuevo diálogo de búsqueda no tuvo inspección visual manual en navegador en esta pasada.
-- Los tokens de texto de ambos temas superaban WCAG AA en la revisión anterior: tema oscuro, texto principal 16.47:1, secundario 6.88:1 y acento 6.67:1; tema claro, 14.25:1, 5.76:1 y 5.46:1.
-- Lighthouse no está instalado, por lo que las metas móviles de 95 en accesibilidad y buenas prácticas siguen sin medirse.
+- El diálogo de alta busca en YouTube Music y exige elegir un resultado antes de agregarlo. Ya no pide pegar enlaces.
+- La lista muestra miniatura, título, artistas, duración y atribución a YouTube Music. Los controles del reproductor manejan el video mediante la API oficial de YouTube.
 - No se incorpora captura al README, según la decisión del usuario.
+- Lighthouse no quedó disponible para medir sus metas de rendimiento y buenas prácticas.
 
-## Configuración y límites de verificación
+## Configuración y límites
 
-- El código está conectado al API oficial, pero no se ha consultado el catálogo en vivo: falta configurar una credencial propia `JAMENDO_CLIENT_ID`.
-- No se probó una reproducción real contra Jamendo ni se inspeccionaron visualmente los resultados remotos.
-- La publicación y URL de producción siguen pendientes de una cuenta del proveedor y del primer despliegue.
+- `ytmusicapi` es una biblioteca Python comunitaria, no una API key oficial. La búsqueda pública funciona sin credenciales ni cookies; YouTube puede cambiar las solicitudes que usa la biblioteca.
+- La reproducción usa el iframe oficial visible de YouTube. La app guarda metadatos e identificadores, y no descarga ni separa el audio del video.
+- Se conserva la ruta Jamendo solo para reproducir referencias creadas por una versión anterior; las búsquedas y altas nuevas usan YouTube Music.
+- No se pudo validar una imagen Docker porque el daemon local no estaba disponible. Tampoco se ha publicado el proyecto: la URL de producción sigue pendiente de una cuenta y despliegue del propietario.

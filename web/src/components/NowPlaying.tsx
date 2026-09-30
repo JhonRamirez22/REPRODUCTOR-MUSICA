@@ -90,7 +90,7 @@ export function NowPlaying({
             <Icon name="brand" size={34} />
           </div>
           <h2>Empieza con una playlist</h2>
-          <p>Crea una lista y encuentra música en el catálogo de artistas independientes.</p>
+          <p>Crea una lista y busca canciones en YouTube Music.</p>
           <button className="button button-primary" type="button" onClick={onCreatePlaylist}>
             Crear playlist
           </button>
@@ -101,7 +101,7 @@ export function NowPlaying({
             <span />
           </div>
           <h2>Tu playlist está vacía</h2>
-          <p>Busca una canción en Jamendo y aparecerá aquí, lista para reproducirse.</p>
+          <p>Busca una canción en YouTube Music y aparecerá aquí, lista para reproducirse.</p>
           <button className="button button-primary" type="button" onClick={onAddTrack}>
             <Icon name="plus" size={18} /> Agregar una pista
           </button>
@@ -110,18 +110,19 @@ export function NowPlaying({
         <>
           <section className="track-stage" aria-label="Pista actual">
             {track.provider === 'youtube' ? (
-              <div
-                className="youtube-frame"
-                ref={playerContainerRef}
-                aria-label="Reproductor de video de YouTube"
-              >
+              <>
+                <div
+                  className="youtube-frame"
+                  ref={playerContainerRef}
+                  aria-label="Reproductor de video de YouTube"
+                />
                 {!player.isPrepared && (
-                  <div className="video-placeholder">
+                  <div className="video-placeholder" aria-hidden="true">
                     <Icon name="play" size={28} />
                     <span>Presiona reproducir para cargar el video</span>
                   </div>
                 )}
-              </div>
+              </>
             ) : track.thumbnailUrl ? (
               <img
                 className="audio-artwork"
@@ -194,7 +195,7 @@ export function NowPlaying({
 }
 
 function providerLabel(provider: Track['provider']): string {
-  if (provider === 'youtube') return 'YouTube';
+  if (provider === 'youtube') return 'YouTube Music';
   if (provider === 'jamendo') return 'Jamendo';
   return 'Audio directo';
 }

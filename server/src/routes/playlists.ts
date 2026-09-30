@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { AppConfig } from '../config.js';
 import { HttpError } from '../errors.js';
 import { ownerIdForRequest } from '../owner.js';
-import type { JamendoService } from '../services/jamendo-service.js';
+import type { YtMusicService } from '../services/ytmusic-service.js';
 import type { PlaylistService } from '../services/playlist-service.js';
 
 const PlaylistParamsSchema = z.object({ playlistId: z.string().uuid() });
@@ -20,13 +20,13 @@ const ExpectedRevisionSchema = z.object({
 
 interface PlaylistRouteOptions {
   service: PlaylistService;
-  jamendo: JamendoService;
+  catalog: YtMusicService;
   config: AppConfig;
 }
 
 export const playlistRoutes: FastifyPluginAsync<PlaylistRouteOptions> = async (
   app,
-  { service, jamendo, config },
+  { service, catalog, config },
 ) => {
   app.get('/playlists', async (request, reply) => {
     const ownerId = ownerIdForRequest(request, reply, config.NODE_ENV === 'production');
@@ -67,7 +67,7 @@ export const playlistRoutes: FastifyPluginAsync<PlaylistRouteOptions> = async (
     const { playlistId } = PlaylistParamsSchema.parse(request.params);
     const input = AddTrackRequestSchema.parse(request.body);
     const ownerId = ownerIdForRequest(request, reply, config.NODE_ENV === 'production');
-    const source = await jamendo.resolveTrack(input.catalogTrackId);
+    const source = await catalog.resolveTrack(input.query, input.videoId);
     const playlist = await service.addTrack(ownerId, playlistId, input, source);
     return reply.code(201).send(playlist);
   });

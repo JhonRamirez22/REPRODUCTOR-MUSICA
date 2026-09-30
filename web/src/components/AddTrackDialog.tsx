@@ -95,7 +95,9 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     } catch (searchError) {
       if (searchRequest.current === requestId) {
         setError(
-          searchError instanceof Error ? searchError.message : 'No se pudo buscar en Jamendo.',
+          searchError instanceof Error
+            ? searchError.message
+            : 'No se pudo buscar en YouTube Music.',
         );
       }
     } finally {
@@ -116,7 +118,8 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setError(null);
     try {
       await onAdd({
-        catalogTrackId: selected.id,
+        query: query.trim(),
+        videoId: selected.id,
         at,
         expectedRevision: playlist.revision,
       });
@@ -142,7 +145,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
         <div className="dialog-header">
           <div>
             <h2 id="add-track-title">Buscar música</h2>
-            <p className="dialog-intro">Encuentra canciones independientes en Jamendo.</p>
+            <p className="dialog-intro">Busca canciones en YouTube Music.</p>
           </div>
           <button className="icon-button" type="button" onClick={close} aria-label="Cerrar">
             <Icon name="close" />
@@ -159,7 +162,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
               <label className="field-label" htmlFor="catalog-query">
                 Canción o artista
               </label>
-              <div className="url-entry">
+              <div className="search-entry">
                 <input
                   id="catalog-query"
                   className="text-input"
@@ -167,11 +170,11 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
                   autoFocus
                   value={query}
                   onChange={(event) => changeQuery(event.target.value)}
-                  placeholder="Buscar en el catálogo"
+                  placeholder="Canción o artista"
                   autoComplete="off"
                 />
                 <button
-                  className="button button-quiet preview-button"
+                  className="button button-quiet catalog-search-button"
                   type="submit"
                   disabled={query.trim().length < 2 || searching}
                 >
@@ -180,8 +183,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
               </div>
             </form>
             <p className="field-hint" id="catalog-help">
-              El catálogo incluye artistas independientes. Cada pista conserva su crédito y
-              licencia.
+              Los resultados se reproducen desde el reproductor oficial de YouTube.
             </p>
 
             {results.length > 0 && (
@@ -208,7 +210,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
                       <span className="catalog-result-copy">
                         <strong>{track.title}</strong>
                         <span>{track.artist}</span>
-                        <span className="catalog-license">Creative Commons</span>
+                        <span className="catalog-provider">YouTube Music</span>
                       </span>
                       <span
                         className="catalog-result-duration"
@@ -218,11 +220,8 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
                       </span>
                     </button>
                     <div className="catalog-result-links">
-                      <a href={track.licenseUrl} target="_blank" rel="noreferrer">
-                        Ver licencia
-                      </a>
                       <a href={track.attributionUrl} target="_blank" rel="noreferrer">
-                        Ficha de la pista
+                        Abrir en YouTube
                       </a>
                     </div>
                   </li>
@@ -245,8 +244,8 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
           <div className="catalog-status catalog-not-configured" role="status">
             <h3>El catálogo no está conectado</h3>
             <p>
-              Configura <code>JAMENDO_CLIENT_ID</code> en el servidor para activar la búsqueda. Los
-              pasos están en el README.
+              Instala las dependencias indicadas en <code>server/requirements.txt</code> y configura
+              <code> YTMUSIC_PYTHON</code> si tu intérprete tiene otra ruta. Consulta el README.
             </p>
           </div>
         )}
@@ -304,6 +303,7 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
   );
 }
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | null): string {
+  if (seconds === null) return '—';
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }

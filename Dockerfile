@@ -1,4 +1,8 @@
 FROM node:22-alpine AS build
+RUN apk add --no-cache python3 py3-pip
+RUN python3 -m venv /opt/ytmusic-venv
+COPY server/requirements.txt /tmp/server-requirements.txt
+RUN /opt/ytmusic-venv/bin/pip install --no-cache-dir -r /tmp/server-requirements.txt
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -13,7 +17,9 @@ RUN npm prune --omit=dev --no-audit --no-fund
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+ENV PATH="/opt/ytmusic-venv/bin:${PATH}"
 WORKDIR /app
+RUN apk add --no-cache python3
 
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
@@ -22,7 +28,9 @@ COPY --from=build --chown=node:node /app/shared/dist ./shared/dist
 COPY --from=build --chown=node:node /app/server/package.json ./server/package.json
 COPY --from=build --chown=node:node /app/server/dist ./server/dist
 COPY --from=build --chown=node:node /app/server/migrations ./server/migrations
+COPY --from=build --chown=node:node /app/server/python ./server/python
 COPY --from=build --chown=node:node /app/web/dist ./web/dist
+COPY --from=build --chown=node:node /opt/ytmusic-venv /opt/ytmusic-venv
 
 USER node
 EXPOSE 3000

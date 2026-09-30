@@ -13,18 +13,21 @@ import { healthRoutes } from './routes/health.js';
 import { catalogRoutes } from './routes/catalog.js';
 import { playlistRoutes } from './routes/playlists.js';
 import { JamendoService } from './services/jamendo-service.js';
+import { YtMusicService } from './services/ytmusic-service.js';
 import { PlaylistService } from './services/playlist-service.js';
 
 export interface BuildAppOptions {
   config: AppConfig;
   pool: Pool;
-  jamendo?: JamendoService;
+  catalog?: YtMusicService;
+  legacyJamendo?: JamendoService;
 }
 
 export async function buildApp({
   config,
   pool,
-  jamendo = new JamendoService(config.JAMENDO_CLIENT_ID),
+  catalog = new YtMusicService(config.YTMUSIC_PYTHON),
+  legacyJamendo = new JamendoService(config.JAMENDO_CLIENT_ID),
 }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: config.NODE_ENV !== 'test',
@@ -87,7 +90,14 @@ export async function buildApp({
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", 'https://www.youtube.com', 'https://s.ytimg.com'],
         frameSrc: ['https://www.youtube.com', 'https://www.youtube-nocookie.com'],
-        imgSrc: ["'self'", 'data:', 'https://i.ytimg.com', 'https://usercontent.jamendo.com'],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://i.ytimg.com',
+          'https://lh3.googleusercontent.com',
+          'https://yt3.googleusercontent.com',
+          'https://yt3.ggpht.com',
+        ],
         mediaSrc: ['https:'],
         connectSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
@@ -109,13 +119,14 @@ export async function buildApp({
   await app.register(healthRoutes, { prefix: '/api', pool });
   await app.register(catalogRoutes, {
     prefix: '/api',
-    service: jamendo,
-    enabled: Boolean(config.JAMENDO_CLIENT_ID),
+    service: catalog,
+    legacyJamendo,
+    legacyJamendoEnabled: Boolean(config.JAMENDO_CLIENT_ID),
   });
   await app.register(playlistRoutes, {
     prefix: '/api',
     service: playlistService,
-    jamendo,
+    catalog,
     config,
   });
 
