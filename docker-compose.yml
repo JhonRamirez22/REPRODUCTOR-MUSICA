@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: reproductor
+      POSTGRES_USER: reproductor
+      POSTGRES_PASSWORD: reproductor_local
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reproductor -d reproductor']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  test-db:
+    image: postgres:16-alpine
+    profiles: ['test']
+    environment:
+      POSTGRES_DB: reproductor_test
+      POSTGRES_USER: reproductor
+      POSTGRES_PASSWORD: reproductor_local
+    ports:
+      - '15433:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reproductor -d reproductor_test']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
