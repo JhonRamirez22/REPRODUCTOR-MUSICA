@@ -2,7 +2,7 @@
 
 Aplicación web en español para crear playlists persistentes y buscar canciones en YouTube Music mediante [`ytmusicapi`](https://github.com/sigma67/ytmusicapi). Una lista doblemente enlazada implementada a mano conserva el orden en el servidor y dirige la navegación en el cliente. La app guarda referencias y metadatos; nunca sube ni extrae archivos de audio.
 
-**URL de producción: `<pendiente>`**. La imagen Docker y el blueprint de Render quedan listos; el primer despliegue requiere una cuenta y credenciales administradas por quien publica el proyecto.
+**URL de producción: `<pendiente>`**. Docker, Render y Vercel están configurados; el primer despliegue requiere una cuenta, una base de datos y credenciales administradas por quien publica el proyecto.
 
 ## Funciones
 
@@ -56,6 +56,8 @@ El servidor publica `web/dist`; las rutas que no comienzan por `/api/` devuelven
 | `DATABASE_URL`            |        Sí | Base `reproductor` del Compose | Cadena de conexión PostgreSQL.                                                                     |
 | `COOKIE_SECRET`           |        Sí | Marcador en `.env.example`     | Secreto de al menos 32 caracteres; en producción usa un valor aleatorio gestionado por el hosting. |
 | `YTMUSIC_PYTHON`          |        No | `python3`                      | Intérprete que tiene instalado `ytmusicapi`.                                                       |
+| `YTMUSIC_API_URL`         |        No | Sin configurar                 | URL HTTPS `/api` de la función Python de catálogo en Vercel.                                       |
+| `YTMUSIC_API_TOKEN`       |        No | Sin configurar                 | Secreto compartido de al menos 32 caracteres; requerido junto a `YTMUSIC_API_URL`.                 |
 | `MAX_PLAYLISTS_PER_OWNER` |        No | `50`                           | Tope por cookie de propietario.                                                                    |
 | `MAX_TRACKS_PER_PLAYLIST` |        No | `500`                          | Tope por playlist.                                                                                 |
 | `BODY_LIMIT_BYTES`        |        No | `16384`                        | Tamaño máximo del JSON, limitado a 16 KiB.                                                         |
@@ -64,6 +66,8 @@ El servidor publica `web/dist`; las rutas que no comienzan por `/api/` devuelven
 | `JAMENDO_CLIENT_ID`       |        No | Sin configurar                 | Solo permite reproducir registros de Jamendo guardados por una versión anterior.                   |
 
 `.env.example` solo sirve para desarrollo local. No pongas secretos reales en Git ni en capturas.
+
+En Vercel, configura `YTMUSIC_API_URL` y `YTMUSIC_API_TOKEN` juntos para que Fastify consulte la función Python. Si no están definidos, los entornos locales y Docker ejecutan el adaptador Python local.
 
 ## Comprobaciones y pruebas
 
@@ -122,6 +126,26 @@ curl -i -c /tmp/reproductor-cookies.txt \
 El contenedor instala Python y las dependencias fijadas en `server/requirements.txt`, además de compilar las tres áreas. Render entrega `PORT`; en local se publica el puerto 3000. El servidor corre como usuario `node` y ejecuta las migraciones al arrancar.
 
 Render ofrece planes gratuitos que pueden suspender instancias web inactivas y caducar bases de datos gratuitas. Elige una base persistente antes de ofrecer almacenamiento duradero. Consulta los [límites gratuitos de Render](https://render.com/docs/free) y la [referencia de `render.yaml`](https://render.com/docs/blueprint-spec).
+
+## Despliegue en Vercel
+
+La aplicación usa `ytmusicapi`, una biblioteca Python. Vercel ejecuta Fastify y Python en runtimes separados, por lo que este repositorio prepara dos proyectos Vercel conectados al mismo repo. El endpoint Python requiere un token compartido y solo acepta solicitudes de búsqueda firmadas. La función Python de Vercel está actualmente en beta; revisa su disponibilidad en la cuenta antes de desplegar.
+
+1. Crea o elige una base PostgreSQL persistente (por ejemplo, Neon) y genera dos secretos aleatorios de al menos 32 caracteres: uno para `COOKIE_SECRET` y otro para `YTMUSIC_API_TOKEN`. Conserva ambos fuera del repositorio.
+2. En Vercel, importa `JhonRamirez22/REPRODUCTOR-MUSICA` como el proyecto del catálogo. Define **Root Directory** como `ytmusic-function`, deja que detecte Python y agrega `YTMUSIC_API_TOKEN` con el secreto generado. Despliega y copia el dominio asignado. La URL de la función es `https://<dominio-del-catalogo>/api`.
+3. Importa de nuevo el mismo repositorio como la aplicación principal. Define **Root Directory** como `.` y conserva el preset Fastify que declara `vercel.json`. Configura estas variables para Production y Preview:
+
+   | Variable            | Valor                                                                                    |
+   | ------------------- | ---------------------------------------------------------------------------------------- |
+   | `NODE_ENV`          | `production`                                                                             |
+   | `DATABASE_URL`      | URL PostgreSQL persistente; usa la conexión agrupada/pooler que recomienda tu proveedor. |
+   | `COOKIE_SECRET`     | Secreto aleatorio distinto, de al menos 32 caracteres.                                   |
+   | `YTMUSIC_API_URL`   | `https://<dominio-del-catalogo>/api`                                                     |
+   | `YTMUSIC_API_TOKEN` | El mismo secreto cargado en el proyecto del catálogo.                                    |
+
+4. Despliega la aplicación principal. Vercel ejecuta `npm run build`, empaqueta `web/dist` y las migraciones junto al servidor Fastify, y la primera instancia aplica las migraciones con el bloqueo PostgreSQL existente. Comprueba `https://<dominio-principal>/api/health` y luego reemplaza `<pendiente>` por la URL pública en este README.
+
+Los dos proyectos deben usar la misma rama de GitHub. Un push genera los despliegues automáticos configurados en Vercel. Vercel no autentica una cuenta ni crea la base de datos por ti; completa esos pasos en el panel antes del primer despliegue. Referencias: [Fastify en Vercel](https://vercel.com/docs/frameworks/backend/fastify), [runtime Python de Vercel](https://vercel.com/docs/functions/runtimes/python) y [configuración de `vercel.json`](https://vercel.com/docs/project-configuration/vercel-json).
 
 ### Construir con Docker
 

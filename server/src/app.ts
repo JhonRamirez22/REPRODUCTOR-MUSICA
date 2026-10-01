@@ -1,4 +1,5 @@
 import { access } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import cookie from '@fastify/cookie';
@@ -26,7 +27,13 @@ export interface BuildAppOptions {
 export async function buildApp({
   config,
   pool,
-  catalog = new YtMusicService(config.YTMUSIC_PYTHON),
+  catalog = new YtMusicService(
+    config.YTMUSIC_PYTHON,
+    undefined,
+    config.YTMUSIC_API_URL && config.YTMUSIC_API_TOKEN
+      ? { url: config.YTMUSIC_API_URL, token: config.YTMUSIC_API_TOKEN }
+      : undefined,
+  ),
   legacyJamendo = new JamendoService(config.JAMENDO_CLIENT_ID),
 }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
@@ -130,10 +137,12 @@ export async function buildApp({
     config,
   });
 
-  const webRootUrl = new URL('../../web/dist/', import.meta.url);
-  const webRoot = fileURLToPath(webRootUrl);
+  const webRoot =
+    process.env.VERCEL === '1'
+      ? join(process.cwd(), 'web', 'dist')
+      : fileURLToPath(new URL('../../web/dist/', import.meta.url));
   try {
-    await access(fileURLToPath(new URL('index.html', webRootUrl)));
+    await access(join(webRoot, 'index.html'));
     await app.register(fastifyStatic, { root: webRoot, prefix: '/' });
     app.get('/', async (_request, reply) => reply.sendFile('index.html'));
     app.setNotFoundHandler((request, reply) => {

@@ -1,4 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import type { AppConfig } from './config.js';
@@ -6,7 +7,7 @@ import type { AppConfig } from './config.js';
 export function createPool(config: AppConfig): Pool {
   return new Pool({
     connectionString: config.DATABASE_URL,
-    max: 10,
+    max: process.env.VERCEL === '1' ? 1 : 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
     application_name: 'reproductor-estructuras-datos',
@@ -15,7 +16,10 @@ export function createPool(config: AppConfig): Pool {
 
 export async function migrate(pool: Pool): Promise<void> {
   const migrationsUrl = new URL('../migrations/', import.meta.url);
-  const migrationsDirectory = fileURLToPath(migrationsUrl);
+  const migrationsDirectory =
+    process.env.VERCEL === '1'
+      ? join(process.cwd(), 'server', 'migrations')
+      : fileURLToPath(migrationsUrl);
   const migrations = (await readdir(migrationsDirectory))
     .filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name))
     .sort();
@@ -36,7 +40,7 @@ export async function migrate(pool: Pool): Promise<void> {
         [version],
       );
       if (result.rowCount === 0) {
-        const migrationSql = await readFile(new URL(migration, migrationsUrl), 'utf8');
+        const migrationSql = await readFile(join(migrationsDirectory, migration), 'utf8');
         await client.query(migrationSql);
         await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
       }

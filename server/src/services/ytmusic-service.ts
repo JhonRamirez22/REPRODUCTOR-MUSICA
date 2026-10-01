@@ -21,14 +21,23 @@ export interface YtMusicRequest {
 
 export type YtMusicRunner = (request: YtMusicRequest) => Promise<unknown>;
 
+export interface YtMusicRemoteApi {
+  url: string;
+  token: string;
+}
+
 export class YtMusicService {
   private readonly run: YtMusicRunner;
   private availability: Promise<boolean> | null = null;
   private readonly searchCache = new Map<string, { expiresAt: number; tracks: CatalogTrack[] }>();
   private readonly pendingSearches = new Map<string, Promise<CatalogTrack[]>>();
 
-  constructor(pythonExecutable = 'python3', run?: YtMusicRunner) {
-    this.run = run ?? ((request) => runPython(pythonExecutable, request));
+  constructor(pythonExecutable = 'python3', run?: YtMusicRunner, remoteApi?: YtMusicRemoteApi) {
+    this.run =
+      run ??
+      (remoteApi
+        ? (request) => runRemoteApi(remoteApi, request)
+        : (request) => runPython(pythonExecutable, request));
   }
 
   async isAvailable(): Promise<boolean> {
@@ -131,6 +140,28 @@ export class YtMusicService {
 const SEARCH_SCRIPT = fileURLToPath(new URL('../../python/search.py', import.meta.url));
 const MAX_OUTPUT_BYTES = 256 * 1024;
 const TIMEOUT_MS = 10_000;
+
+async function runRemoteApi(
+  remoteApi: YtMusicRemoteApi,
+  request: YtMusicRequest,
+): Promise<unknown> {
+  const response = await fetch(remoteApi.url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${remoteApi.token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`ytmusicapi service returned ${response.status}`);
+
+  const body = await response.text();
+  if (Buffer.byteLength(body) > MAX_OUTPUT_BYTES) {
+    throw new Error('ytmusicapi service response exceeded the limit');
+  }
+  return JSON.parse(body) as unknown;
+}
 
 function runPython(pythonExecutable: string, request: YtMusicRequest): Promise<unknown> {
   return new Promise((resolve, reject) => {

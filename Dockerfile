@@ -29,6 +29,7 @@ COPY --from=build --chown=node:node /app/server/package.json ./server/package.js
 COPY --from=build --chown=node:node /app/server/dist ./server/dist
 COPY --from=build --chown=node:node /app/server/migrations ./server/migrations
 COPY --from=build --chown=node:node /app/server/python ./server/python
+COPY --from=build --chown=node:node /app/ytmusic-function/catalog.py ./ytmusic-function/catalog.py
 COPY --from=build --chown=node:node /app/web/dist ./web/dist
 COPY --from=build --chown=node:node /opt/ytmusic-venv /opt/ytmusic-venv
 

@@ -33,6 +33,35 @@ describe('YtMusicService', () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the authenticated remote catalog when configured', async () => {
+    const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    const token = 'catalog-service-token-that-is-at-least-32-chars';
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ input, init });
+      const request = JSON.parse(String(init?.body)) as YtMusicRequest;
+      return new Response(JSON.stringify(request.action === 'check' ? { ready: true } : [result]), {
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+
+    try {
+      const service = new YtMusicService('python3', undefined, {
+        url: 'https://catalog.example.com/api',
+        token,
+      });
+
+      await expect(service.isAvailable()).resolves.toBe(true);
+      await expect(service.search('Fankel')).resolves.toMatchObject([
+        { id: 'dQw4w9WgXcQ', title: 'Mañana será tarde' },
+      ]);
+      expect(requests).toHaveLength(2);
+      expect(requests[0]).toMatchObject({ input: 'https://catalog.example.com/api' });
+      expect(requests[0]?.init?.headers).toMatchObject({ authorization: `Bearer ${token}` });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('rejects untrusted thumbnails and re-verifies a selected result against the query', async () => {
     const run = vi.fn(async ({ action }: YtMusicRequest) =>
       action === 'check'
