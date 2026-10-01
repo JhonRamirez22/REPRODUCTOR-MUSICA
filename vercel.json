@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "functions": {
     "server.ts": {
-      "includeFiles": ["web/dist/**", "server/migrations/**/*.sql"],
+      "includeFiles": "{web/dist/**,server/migrations/**/*.sql}",
       "maxDuration": 30
     }
   }
