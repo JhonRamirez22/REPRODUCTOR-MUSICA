@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "npm run build --workspace @reproductor/shared && npm run build --workspace @reproductor/web && npm run build --workspace @reproductor/server",
+    "build:vercel": "npm run build && node scripts/generate-vercel-bundle.mjs",
     "start": "npm run start --workspace @reproductor/server",
     "test": "npm run build --workspace @reproductor/shared && node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
     "lint": "eslint . && prettier --check .",

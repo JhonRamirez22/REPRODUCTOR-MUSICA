@@ -1,11 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "fastify",
-  "buildCommand": "npm run build",
-  "functions": {
-    "server.ts": {
-      "includeFiles": "{web/dist/**,server/migrations/**/*.sql}",
-      "maxDuration": 30
-    }
-  }
+  "buildCommand": "npm run build:vercel"
 }

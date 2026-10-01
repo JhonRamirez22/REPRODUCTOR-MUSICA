@@ -22,11 +22,13 @@ export interface BuildAppOptions {
   pool: Pool;
   catalog?: YtMusicService;
   legacyJamendo?: JamendoService;
+  webAssets?: Readonly<Record<string, { contentType: string; data: string }>>;
 }
 
 export async function buildApp({
   config,
   pool,
+  webAssets,
   catalog = new YtMusicService(
     config.YTMUSIC_PYTHON,
     undefined,
@@ -137,26 +139,58 @@ export async function buildApp({
     config,
   });
 
-  const webRoot =
-    process.env.VERCEL === '1'
-      ? join(process.cwd(), 'web', 'dist')
-      : fileURLToPath(new URL('../../web/dist/', import.meta.url));
-  try {
-    await access(join(webRoot, 'index.html'));
-    await app.register(fastifyStatic, { root: webRoot, prefix: '/' });
-    app.get('/', async (_request, reply) => reply.sendFile('index.html'));
+  if (webAssets) {
+    const indexAsset = webAssets['index.html'];
+    for (const [path, asset] of Object.entries(webAssets)) {
+      app.get(`/${path}`, async (_request, reply) => {
+        reply.type(asset.contentType);
+        reply.header(
+          'cache-control',
+          path.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+        );
+        return reply.send(Buffer.from(asset.data, 'base64'));
+      });
+    }
+    if (indexAsset) {
+      app.get('/', async (_request, reply) => {
+        reply.type(indexAsset.contentType).header('cache-control', 'no-cache');
+        return reply.send(Buffer.from(indexAsset.data, 'base64'));
+      });
+    }
     app.setNotFoundHandler((request, reply) => {
-      if (request.url.startsWith('/api/')) {
+      const pathname = request.url.split('?')[0] ?? '';
+      if (pathname === '/api' || pathname.startsWith('/api/')) {
         return reply
           .code(404)
           .send({ error: { code: 'not_found', message: 'No se encontró la ruta.' } });
       }
-      return reply.type('text/html').sendFile('index.html');
+      if (!indexAsset || pathname.startsWith('/assets/') || /\/[^/]+\.[^/]+$/.test(pathname)) {
+        return reply
+          .code(404)
+          .send({ error: { code: 'not_found', message: 'No se encontró la ruta.' } });
+      }
+      reply.type(indexAsset.contentType).header('cache-control', 'no-cache');
+      return reply.send(Buffer.from(indexAsset.data, 'base64'));
     });
-  } catch {
-    app.setNotFoundHandler((_request, reply) =>
-      reply.code(404).send({ error: { code: 'not_found', message: 'No se encontró la ruta.' } }),
-    );
+  } else {
+    const webRoot = fileURLToPath(new URL('../../web/dist/', import.meta.url));
+    try {
+      await access(join(webRoot, 'index.html'));
+      await app.register(fastifyStatic, { root: webRoot, prefix: '/' });
+      app.get('/', async (_request, reply) => reply.sendFile('index.html'));
+      app.setNotFoundHandler((request, reply) => {
+        if (request.url.startsWith('/api/')) {
+          return reply
+            .code(404)
+            .send({ error: { code: 'not_found', message: 'No se encontró la ruta.' } });
+        }
+        return reply.type('text/html').sendFile('index.html');
+      });
+    } catch {
+      app.setNotFoundHandler((_request, reply) =>
+        reply.code(404).send({ error: { code: 'not_found', message: 'No se encontró la ruta.' } }),
+      );
+    }
   }
 
   return app;

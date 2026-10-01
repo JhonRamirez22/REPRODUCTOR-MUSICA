@@ -14,15 +14,23 @@ export function createPool(config: AppConfig): Pool {
   });
 }
 
-export async function migrate(pool: Pool): Promise<void> {
-  const migrationsUrl = new URL('../migrations/', import.meta.url);
-  const migrationsDirectory =
-    process.env.VERCEL === '1'
-      ? join(process.cwd(), 'server', 'migrations')
-      : fileURLToPath(migrationsUrl);
-  const migrations = (await readdir(migrationsDirectory))
-    .filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name))
-    .sort();
+export async function migrate(
+  pool: Pool,
+  bundledMigrations?: Readonly<Record<string, string>>,
+): Promise<void> {
+  let migrationsDirectory: string | undefined;
+  let migrations: string[];
+  if (bundledMigrations) {
+    migrations = Object.keys(bundledMigrations)
+      .filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name))
+      .sort();
+  } else {
+    const migrationsUrl = new URL('../migrations/', import.meta.url);
+    migrationsDirectory = fileURLToPath(migrationsUrl);
+    migrations = (await readdir(migrationsDirectory))
+      .filter((name) => /^\d+_[a-z0-9_-]+\.sql$/i.test(name))
+      .sort();
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -40,7 +48,12 @@ export async function migrate(pool: Pool): Promise<void> {
         [version],
       );
       if (result.rowCount === 0) {
-        const migrationSql = await readFile(join(migrationsDirectory, migration), 'utf8');
+        const migrationSql = bundledMigrations
+          ? bundledMigrations[migration]
+          : migrationsDirectory
+            ? await readFile(join(migrationsDirectory, migration), 'utf8')
+            : undefined;
+        if (migrationSql === undefined) throw new Error(`Migration ${migration} is missing.`);
         await client.query(migrationSql);
         await client.query('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
       }

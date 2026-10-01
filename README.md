@@ -143,7 +143,7 @@ La aplicación usa `ytmusicapi`, una biblioteca Python. Vercel ejecuta Fastify y
    | `YTMUSIC_API_URL`   | `https://<dominio-del-catalogo>/api`                                                     |
    | `YTMUSIC_API_TOKEN` | El mismo secreto cargado en el proyecto del catálogo.                                    |
 
-4. Despliega la aplicación principal. Vercel ejecuta `npm run build`, empaqueta `web/dist` y las migraciones junto al servidor Fastify, y la primera instancia aplica las migraciones con el bloqueo PostgreSQL existente. Comprueba `https://<dominio-principal>/api/health` y luego reemplaza `<pendiente>` por la URL pública en este README.
+4. Despliega la aplicación principal. `vercel.json` ejecuta `npm run build:vercel`; el script incorpora los archivos web y las migraciones al bundle que importa la función Fastify, que los sirve junto con la API. La primera instancia aplica las migraciones con el bloqueo PostgreSQL existente. Comprueba `https://<dominio-principal>/api/health` y luego reemplaza `<pendiente>` por la URL pública en este README.
 
 Los dos proyectos deben usar la misma rama de GitHub. Un push genera los despliegues automáticos configurados en Vercel. Vercel no autentica una cuenta ni crea la base de datos por ti; completa esos pasos en el panel antes del primer despliegue. Referencias: [Fastify en Vercel](https://vercel.com/docs/frameworks/backend/fastify), [runtime Python de Vercel](https://vercel.com/docs/functions/runtimes/python) y [configuración de `vercel.json`](https://vercel.com/docs/project-configuration/vercel-json).
 

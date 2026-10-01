@@ -22,6 +22,49 @@ afterAll(async () => {
 });
 
 describe('Fastify API', () => {
+  it('serves bundled web assets and keeps unknown API routes as JSON 404s', async () => {
+    const index = '<!doctype html><title>Bundled app</title>';
+    const script = 'globalThis.appLoaded = true;';
+    app = await buildApp({
+      config: loadConfig({
+        NODE_ENV: 'test',
+        DATABASE_URL: 'postgres://test:test@127.0.0.1:1/test',
+        COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
+      }),
+      pool,
+      webAssets: {
+        'index.html': {
+          contentType: 'text/html; charset=utf-8',
+          data: Buffer.from(index).toString('base64'),
+        },
+        'assets/app.js': {
+          contentType: 'text/javascript; charset=utf-8',
+          data: Buffer.from(script).toString('base64'),
+        },
+      },
+    });
+
+    const home = await app.inject({ method: 'GET', url: '/' });
+    expect(home.statusCode).toBe(200);
+    expect(home.body).toBe(index);
+    expect(home.headers['cache-control']).toBe('no-cache');
+
+    const asset = await app.inject({ method: 'GET', url: '/assets/app.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.body).toBe(script);
+    expect(asset.headers['cache-control']).toContain('immutable');
+
+    const spaRoute = await app.inject({ method: 'GET', url: '/playlists' });
+    expect(spaRoute.body).toBe(index);
+
+    const missingAsset = await app.inject({ method: 'GET', url: '/assets/missing.js' });
+    expect(missingAsset.statusCode).toBe(404);
+
+    const missingApi = await app.inject({ method: 'GET', url: '/api/missing' });
+    expect(missingApi.statusCode).toBe(404);
+    expect(missingApi.json()).toMatchObject({ error: { code: 'not_found' } });
+  });
+
   it('exposes the public YouTube Music catalog and verifies selections server-side', async () => {
     app = await buildApp({
       config: loadConfig({
