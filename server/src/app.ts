@@ -20,6 +20,7 @@ import { PlaylistService } from './services/playlist-service.js';
 export interface BuildAppOptions {
   config: AppConfig;
   pool: Pool;
+  instance?: FastifyInstance;
   catalog?: YtMusicService;
   legacyJamendo?: JamendoService;
   webAssets?: Readonly<Record<string, { contentType: string; data: string }>>;
@@ -28,6 +29,7 @@ export interface BuildAppOptions {
 export async function buildApp({
   config,
   pool,
+  instance,
   webAssets,
   catalog = new YtMusicService(
     config.YTMUSIC_PYTHON,
@@ -38,11 +40,13 @@ export async function buildApp({
   ),
   legacyJamendo = new JamendoService(config.JAMENDO_CLIENT_ID),
 }: BuildAppOptions): Promise<FastifyInstance> {
-  const app = Fastify({
-    logger: config.NODE_ENV !== 'test',
-    trustProxy: true,
-    bodyLimit: config.BODY_LIMIT_BYTES,
-  });
+  const app =
+    instance ??
+    Fastify({
+      logger: config.NODE_ENV !== 'test',
+      trustProxy: true,
+      bodyLimit: config.BODY_LIMIT_BYTES,
+    });
   const playlistService = new PlaylistService(pool, config);
 
   app.setErrorHandler((error, request, reply) => {

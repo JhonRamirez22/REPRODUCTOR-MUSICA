@@ -1,6 +1,7 @@
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
 import type { FastifyInstance } from 'fastify';
+import Fastify from 'fastify';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { YtMusicService } from './services/ytmusic-service.js';
@@ -25,6 +26,7 @@ describe('Fastify API', () => {
   it('serves bundled web assets and keeps unknown API routes as JSON 404s', async () => {
     const index = '<!doctype html><title>Bundled app</title>';
     const script = 'globalThis.appLoaded = true;';
+    const instance = Fastify({ logger: false });
     app = await buildApp({
       config: loadConfig({
         NODE_ENV: 'test',
@@ -32,6 +34,7 @@ describe('Fastify API', () => {
         COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
       }),
       pool,
+      instance,
       webAssets: {
         'index.html': {
           contentType: 'text/html; charset=utf-8',
@@ -43,6 +46,7 @@ describe('Fastify API', () => {
         },
       },
     });
+    expect(app).toBe(instance);
 
     const home = await app.inject({ method: 'GET', url: '/' });
     expect(home.statusCode).toBe(200);

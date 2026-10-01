@@ -17,7 +17,7 @@ No se precarga música de demostración. La búsqueda pública no requiere API k
 
 ## Requisitos
 
-- Node.js 22 o posterior y npm.
+- Node.js 22 y npm.
 - Python 3.10 o posterior con `pip`.
 - Docker Compose para PostgreSQL en desarrollo y las pruebas de integración.
 
