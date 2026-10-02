@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { PlaylistSummary } from '@reproductor/shared';
+import type { AuthUser, PlaylistSummary } from '@reproductor/shared';
 import { Icon } from './Icon.js';
 import { focusMobilePanel, trapMobilePanelFocus } from './mobile-panel.js';
 
@@ -10,11 +10,16 @@ interface PlaylistSidebarProps {
   selectedId: string | null;
   loading: boolean;
   error: string | null;
+  user: AuthUser | null;
+  authLoading: boolean;
+  authActionLoading: boolean;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (playlist: PlaylistSummary) => void;
   onDelete: (playlist: PlaylistSummary) => void;
   onRetry: () => void;
+  onOpenAuth: (mode: 'login' | 'register') => void;
+  onLogout: () => void;
   onClose: () => void;
 }
 
@@ -25,11 +30,16 @@ export function PlaylistSidebar({
   selectedId,
   loading,
   error,
+  user,
+  authLoading,
+  authActionLoading,
   onSelect,
   onCreate,
   onRename,
   onDelete,
   onRetry,
+  onOpenAuth,
+  onLogout,
   onClose,
 }: PlaylistSidebarProps) {
   const panelRef = useRef<HTMLElement>(null);
@@ -148,6 +158,50 @@ export function PlaylistSidebar({
           ))}
         </ul>
       )}
+
+      <section className="account-area" aria-label="Cuenta">
+        {authLoading ? (
+          <p className="account-copy" role="status">
+            Comprobando sesión…
+          </p>
+        ) : user ? (
+          <>
+            <h2 className="account-heading">Cuenta</h2>
+            <p className="account-email">{user.email}</p>
+            <button
+              className="text-button account-action"
+              type="button"
+              onClick={onLogout}
+              disabled={authActionLoading}
+            >
+              {authActionLoading ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 className="account-heading">Guarda tus playlists</h2>
+            <p className="account-copy">Crea una cuenta para abrirlas desde otros dispositivos.</p>
+            <div className="account-actions">
+              <button
+                className="button button-primary account-create"
+                type="button"
+                onClick={() => onOpenAuth('register')}
+                disabled={authActionLoading}
+              >
+                Crear cuenta
+              </button>
+              <button
+                className="text-button account-action"
+                type="button"
+                onClick={() => onOpenAuth('login')}
+                disabled={authActionLoading}
+              >
+                Iniciar sesión
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
       <div className="sidebar-footnote">
         <span className="footnote-rule" />

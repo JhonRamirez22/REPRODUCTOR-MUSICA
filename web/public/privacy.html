@@ -57,21 +57,37 @@
     <main>
       <h1>Aviso de privacidad</h1>
       <p>
-        Esta aplicación guarda playlists para que funcionen entre visitas en el mismo navegador. No
-        solicita nombre, correo ni una cuenta.
+        Puedes usar esta aplicación sin una cuenta, o crear una con correo electrónico y contraseña
+        para acceder a tus playlists desde otros dispositivos. El audio no se sube.
       </p>
 
       <h2>Datos que se guardan</h2>
       <p>
-        El servidor crea un identificador aleatorio de propietario dentro de una cookie firmada,
-        protegida como HttpOnly y SameSite=Lax, con una duración de hasta un año. PostgreSQL guarda
-        los nombres de playlists, el orden y los IDs, títulos, artistas, carátulas, enlaces de ficha
-        y referencias de las pistas que agregas. El audio no se almacena.
+        Sin cuenta, el servidor usa un identificador aleatorio de propietario dentro de una cookie
+        firmada, HttpOnly y SameSite=Lax, con una duración de hasta un año. Al crear una cuenta,
+        PostgreSQL guarda el correo normalizado, un hash scrypt de la contraseña y sesiones con
+        vencimiento de 30 días. La contraseña original no se guarda. Las cookies de sesión son
+        firmadas, HttpOnly y SameSite=Lax; también usan Secure en producción.
+      </p>
+      <p>
+        PostgreSQL guarda los nombres de playlists, el orden y los IDs, títulos, artistas,
+        carátulas, enlaces de ficha y referencias de las pistas que agregas. Al registrarte, las
+        playlists anónimas de ese navegador quedan vinculadas a la cuenta. El audio no se almacena.
       </p>
       <p>
         Las playlists y sus pistas permanecen hasta que las elimines desde la aplicación o el
         administrador de la instancia elimine los datos. Borrar la cookie crea otro identificador;
-        no borra ni recupera playlists anteriores.
+        no borra ni recupera playlists anónimas anteriores. Para una cuenta, inicia sesión con el
+        mismo correo y contraseña desde el nuevo dispositivo.
+      </p>
+
+      <h2>Archivos locales y credenciales</h2>
+      <p>
+        Los archivos de audio locales permanecen en la memoria de esta pestaña. No se envían al
+        servidor, no se sincronizan y tendrás que seleccionarlos de nuevo después de cerrar o
+        recargar la página. La aplicación no ofrece recuperación automática de contraseñas; conserva
+        la que elegiste. Para solicitar la eliminación de una cuenta o sus datos, contacta a quien
+        administra esta instancia.
       </p>
 
       <h2>Búsqueda y reproducción de YouTube Music</h2>
@@ -96,8 +112,9 @@
       <h2>Hosting y registros técnicos</h2>
       <p>
         El servidor y la base de datos pueden procesar datos técnicos de conexión para operar y
-        proteger el servicio. Si esta instancia se aloja en Render u otro proveedor, ese proveedor
-        también trata solicitudes y datos según sus términos y aviso de privacidad.
+        proteger el servicio. Esta instancia utiliza AWS para ejecutar la API y guardar datos, y
+        Vercel para servir el frontend. Esos proveedores también tratan solicitudes y datos según
+        sus términos y avisos de privacidad.
       </p>
 
       <h2>Contacto</h2>

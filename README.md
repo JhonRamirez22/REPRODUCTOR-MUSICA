@@ -6,7 +6,8 @@ Aplicación web en español para crear playlists persistentes y buscar canciones
 
 ## Funciones
 
-- Crear, renombrar, cambiar y eliminar playlists con PostgreSQL e identidad anónima por cookie firmada.
+- Crear playlists sin cuenta o crear una cuenta con correo y contraseña; al registrarse, las playlists anónimas actuales pasan a la cuenta y quedan disponibles al iniciar sesión desde otro dispositivo.
+- Iniciar y cerrar sesión con sesiones protegidas. Las contraseñas se almacenan como hashes scrypt; las playlists de cada cuenta se aíslan por su ID en PostgreSQL.
 - Buscar por título o artista, elegir un resultado de YouTube Music y agregarlo al inicio, al final o en una posición elegida.
 - Verificar en el servidor que el video seleccionado pertenece a la búsqueda antes de guardarlo; la interfaz no ofrece entrada de enlaces.
 - Agregar varios archivos de audio al final de la playlist seleccionada durante la sesión y reproducirlos desde el dispositivo, sin subirlos. Hay que volver a elegirlos después de recargar.
@@ -104,6 +105,10 @@ Todas las rutas usan JSON y el prefijo `/api`. Las mutaciones reciben `expectedR
 | Método                   | Ruta                                                            | Resultado                                                                                       |
 | ------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `GET`                    | `/api/health`                                                   | Estado del servidor y PostgreSQL; devuelve `503` si la BD no responde.                          |
+| `GET`                    | `/api/auth/session`                                             | Devuelve el usuario de la sesión actual o `null`.                                               |
+| `POST`                   | `/api/auth/register`                                            | Crea cuenta con `{ email, password }` y vincula sus playlists anónimas actuales.                |
+| `POST`                   | `/api/auth/login`                                               | Inicia sesión con `{ email, password }`.                                                        |
+| `POST`                   | `/api/auth/logout`                                              | Revoca la sesión actual.                                                                        |
 | `GET`                    | `/api/catalog/status`                                           | Indica si el paquete `ytmusicapi` está instalado en el runtime.                                 |
 | `GET`                    | `/api/catalog/search?q=...`                                     | Busca canciones públicas en YouTube Music; máximo 20 solicitudes por minuto.                    |
 | `GET`, `POST`            | `/api/playlists`                                                | Lista del propietario o crea una playlist.                                                      |
@@ -166,8 +171,10 @@ El contenedor ya incluye el intérprete y el paquete Python para búsquedas púb
 - El servidor pasa el texto de búsqueda a `ytmusicapi`; el navegador carga la miniatura de YouTube y el reproductor oficial al reproducir. YouTube recibe las solicitudes y datos técnicos que requiere la reproducción.
 - Solo se guardan el `videoId`, título, artista, duración, miniatura, posición y referencia de origen. No se almacena audio.
 - Los archivos locales se agregan a la playlist seleccionada solo durante la sesión y permanecen en memoria del navegador. No se envían al servidor ni se guardan como pistas persistentes; vuelve a elegirlos después de recargar o cerrar la pestaña. La reproducción depende de los formatos admitidos por el navegador.
-- La cookie anónima identifica el navegador. Borrarla crea otro propietario y no permite recuperar playlists anteriores. No hay cuenta ni recuperación de identidad.
-- El servicio permanece en el mismo origen en producción: CORS está cerrado. Las cookies son `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+- Sin iniciar sesión, la cookie anónima identifica el navegador; borrarla impide recuperar esas playlists desde ese navegador. Regístrate para vincularlas a una cuenta y acceder desde otros dispositivos.
+- La cuenta guarda correo, hash scrypt de la contraseña y sesiones temporales. La sesión dura hasta 30 días. No hay restablecimiento de contraseña ni confirmación por correo; conserva la contraseña. El cierre o eliminación de cuentas requiere contactar a quien administra el servicio.
+- El servicio permanece en el mismo origen en producción: CORS está cerrado. Las cookies de sesión y de propietario son `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+- Las playlists se sincronizan al iniciar sesión en cualquier dispositivo. Los archivos de audio locales permanecen en la memoria del navegador de ese dispositivo y no se sincronizan; hay que volver a seleccionarlos.
 - `/api/catalog/stream/:trackId` y `JAMENDO_CLIENT_ID` solo se conservan para reproducir pistas Jamendo creadas por una versión anterior; el buscador actual no usa Jamendo.
 
 ## Estructura

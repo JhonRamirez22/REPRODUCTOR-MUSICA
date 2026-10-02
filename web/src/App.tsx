@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DoublyLinkedList,
   type AddTrackRequest,
+  type AuthUser,
   type Playlist,
   type PlaylistSummary,
   type Track,
 } from '@reproductor/shared';
 import { AddTrackDialog } from './components/AddTrackDialog.js';
+import { AuthDialog, type AuthMode } from './components/AuthDialog.js';
 import { Icon } from './components/Icon.js';
 import { NowPlaying } from './components/NowPlaying.js';
 import { PlaylistNameDialog } from './components/PlaylistNameDialog.js';
@@ -58,6 +60,9 @@ function summaryOf(playlist: Playlist): PlaylistSummary {
 
 function App() {
   const [playlists, setPlaylists] = useState<PlaylistSummary[]>([]);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authActionLoading, setAuthActionLoading] = useState(false);
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
   const [playlistsLoading, setPlaylistsLoading] = useState(true);
   const [playlistLoading, setPlaylistLoading] = useState(false);
@@ -73,6 +78,7 @@ function App() {
     playlist?: PlaylistSummary;
   } | null>(null);
   const [addTrackOpen, setAddTrackOpen] = useState(false);
+  const [authDialogMode, setAuthDialogMode] = useState<AuthMode | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -117,7 +123,7 @@ function App() {
   }, []);
 
   const loadPlaylists = useCallback(
-    async (preferredId?: string): Promise<void> => {
+    async (preferredId?: string): Promise<boolean> => {
       setPlaylistsLoading(true);
       setPlaylistsError(null);
       try {
@@ -132,10 +138,12 @@ function App() {
           setPlaylistLoading(false);
           saveLastPlaylistId(null);
         }
+        return true;
       } catch (error) {
         setPlaylistsError(
           error instanceof Error ? error.message : 'No se pudieron cargar las playlists.',
         );
+        return false;
       } finally {
         setPlaylistsLoading(false);
       }
@@ -144,8 +152,71 @@ function App() {
   );
 
   useEffect(() => {
-    void loadPlaylists();
+    let active = true;
+    void (async () => {
+      try {
+        const session = await api.authSession();
+        if (!active) return;
+        setAuthUser(session.user);
+        await loadPlaylists();
+      } catch (error) {
+        if (!active) return;
+        setPlaylistsError(
+          error instanceof Error ? error.message : 'No se pudo comprobar la cuenta.',
+        );
+        setPlaylistsLoading(false);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [loadPlaylists]);
+
+  async function submitAuth(mode: AuthMode, email: string, password: string): Promise<void> {
+    setAuthActionLoading(true);
+    try {
+      const response =
+        mode === 'register'
+          ? await api.register(email, password)
+          : await api.login(email, password);
+      setAuthUser(response.user);
+      setAuthDialogMode(null);
+      setLocalTracksByPlaylist(EMPTY_LOCAL_TRACK_MAP);
+      saveLastPlaylistId(null);
+      const loaded = await loadPlaylists();
+      setNotice(
+        loaded
+          ? mode === 'register'
+            ? 'Cuenta creada. Tus playlists ahora están vinculadas a ella.'
+            : 'Sesión iniciada. Tus playlists se cargaron desde la nube.'
+          : 'Sesión iniciada, pero no fue posible cargar las playlists. Reintenta desde la barra lateral.',
+      );
+    } finally {
+      setAuthActionLoading(false);
+    }
+  }
+
+  async function logout(): Promise<void> {
+    setAuthActionLoading(true);
+    try {
+      await api.logout();
+      setAuthUser(null);
+      setLocalTracksByPlaylist(EMPTY_LOCAL_TRACK_MAP);
+      saveLastPlaylistId(null);
+      const loaded = await loadPlaylists();
+      setNotice(
+        loaded
+          ? 'Sesión cerrada. Las playlists de la cuenta volverán a aparecer al iniciar sesión.'
+          : 'Sesión cerrada, pero no fue posible cargar las playlists de este dispositivo.',
+      );
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'No se pudo cerrar la sesión.');
+    } finally {
+      setAuthActionLoading(false);
+    }
+  }
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 940px)');
@@ -396,6 +467,9 @@ function App() {
         selectedId={selectedPlaylistId}
         loading={playlistsLoading}
         error={playlistsError}
+        user={authUser}
+        authLoading={authLoading}
+        authActionLoading={authActionLoading}
         onSelect={(id) => {
           void loadPlaylist(id);
           setMobileNavOpen(false);
@@ -404,6 +478,8 @@ function App() {
         onRename={(playlist) => setNameDialog({ mode: 'rename', playlist })}
         onDelete={(playlist) => void deletePlaylist(playlist)}
         onRetry={() => void loadPlaylists()}
+        onOpenAuth={setAuthDialogMode}
+        onLogout={() => void logout()}
         onClose={() => setMobileNavOpen(false)}
       />
 
@@ -560,6 +636,13 @@ function App() {
         initialName={nameDialog?.playlist?.name ?? ''}
         onClose={() => setNameDialog(null)}
         onSubmit={nameDialog?.mode === 'rename' ? renamePlaylist : createPlaylist}
+      />
+      <AuthDialog
+        open={authDialogMode !== null}
+        mode={authDialogMode ?? 'login'}
+        onClose={() => setAuthDialogMode(null)}
+        onModeChange={setAuthDialogMode}
+        onSubmit={submitAuth}
       />
       <AddTrackDialog
         open={addTrackOpen}

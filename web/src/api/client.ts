@@ -1,10 +1,14 @@
 import {
+  AuthResponseSchema,
+  AuthSessionSchema,
   CatalogSearchResponseSchema,
   CatalogStatusSchema,
   ErrorResponseSchema,
   PlaylistSchema,
   PlaylistSummarySchema,
   type AddTrackRequest,
+  type AuthCredentials,
+  type AuthUser,
   type CatalogSearchResponse,
   type CatalogStatus,
   type Playlist,
@@ -62,6 +66,26 @@ async function request<Schema extends z.ZodTypeAny>(
 }
 
 export const api = {
+  authSession(): Promise<{ user: AuthUser | null }> {
+    return request('/api/auth/session', AuthSessionSchema);
+  },
+  register(email: string, password: string): Promise<{ user: AuthUser }> {
+    const credentials: AuthCredentials = { email, password };
+    return request('/api/auth/register', AuthResponseSchema, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  },
+  login(email: string, password: string): Promise<{ user: AuthUser }> {
+    const credentials: AuthCredentials = { email, password };
+    return request('/api/auth/login', AuthResponseSchema, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  },
+  async logout(): Promise<void> {
+    await request('/api/auth/logout', z.void(), { method: 'POST' });
+  },
   listPlaylists(): Promise<PlaylistSummary[]> {
     return request('/api/playlists', PlaylistListSchema);
   },

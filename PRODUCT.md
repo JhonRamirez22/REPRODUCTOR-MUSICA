@@ -35,7 +35,11 @@ La persona busca una canción o artista en el catálogo, elige una pista, decide
 - La reproducción usa el reproductor de video oficial y visible de YouTube. La app no descarga ni extrae audio.
 - El orden se implementa con una lista doblemente enlazada, nunca con un array como estructura de datos.
 - Se requieren accesibilidad, operación por teclado, diseño adaptable y estados explícitos de carga, vacío, error y éxito.
-- El despliegue queda preparado para Render y PostgreSQL administrado; la persona propietaria realiza la autenticación y el primer despliegue.
+- Las personas pueden usar el modo anónimo con cookie o crear una cuenta para guardar sus playlists en PostgreSQL y acceder desde otros dispositivos.
+- La contraseña se guarda con hash scrypt; las sesiones usan cookies firmadas HttpOnly con vencimiento de 30 días.
+- Crear una cuenta vincula las playlists anónimas actuales del navegador. Los archivos locales no se suben ni se sincronizan entre dispositivos.
+- No existe recuperación de contraseña ni verificación por correo; la interfaz y el aviso de privacidad deben comunicarlo.
+- El despliegue actual usa Vercel para el frontend, ECS Express Mode para la API y Aurora PostgreSQL.
 
 ## Evidencia disponible
 
