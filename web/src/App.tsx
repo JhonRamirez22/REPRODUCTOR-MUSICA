@@ -259,12 +259,14 @@ function App() {
     const rejectedMessage = rejectedCount
       ? ` Se omitieron ${rejectedCount} archivos que no son audio compatible.`
       : '';
-    const destination = activePlaylist
-      ? `al final de «${activePlaylist.name}» durante esta sesión`
-      : 'a la cola local';
-    setNotice(
-      `${countLabel} agregado${selectedTracks.length === 1 ? '' : 's'} ${destination}. No se sube ni se conserva al recargar.${rejectedMessage}`,
-    );
+    const destination = activePlaylist ? `a «${activePlaylist.name}»` : 'a la cola de reproducción';
+    const action =
+      selectedTracks.length === 1 ? 'Se agregó temporalmente' : 'Se agregaron temporalmente';
+    const availability =
+      selectedTracks.length === 1
+        ? 'Al ser local, el archivo solo estará disponible en este dispositivo durante esta sesión. No se sube ni se sincroniza con la nube; después de recargar o cambiar de dispositivo, deberás seleccionarlo de nuevo.'
+        : 'Al ser locales, los archivos solo estarán disponibles en este dispositivo durante esta sesión. No se suben ni se sincronizan con la nube; después de recargar o cambiar de dispositivo, deberás seleccionarlos de nuevo.';
+    setNotice(`${action} ${countLabel} ${destination}. ${availability}${rejectedMessage}`);
     return { added: selectedTracks.length, rejected: rejectedCount };
   }
 

@@ -200,8 +200,8 @@ export function AddTrackDialog({
             <h3 id="local-audio-title">Desde este dispositivo</h3>
             <p id="local-files-help">
               {playlist
-                ? `Se agrega al final de «${playlist.name}» durante esta sesión. No se sube y se pierde al recargar.`
-                : 'Reproduce audio en una cola temporal. No se sube y desaparece al recargar.'}
+                ? `Se agrega al final de «${playlist.name}» durante esta sesión. El archivo no se sube ni se sincroniza; deberás seleccionarlo de nuevo al recargar o usar otro dispositivo.`
+                : 'Reproduce audio en una cola temporal. El archivo no se sube ni se sincroniza; deberás seleccionarlo de nuevo al recargar.'}
             </p>
           </div>
           <LocalFilesButton

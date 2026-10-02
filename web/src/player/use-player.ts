@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { DoublyLinkedList, PlaybackCursor, type RepeatMode } from '@reproductor/shared';
 import { AudioEngine } from './audio-engine.js';
 import { isPlaybackTime, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
@@ -64,6 +64,7 @@ export function usePlayer(
   const cursorRef = useRef<PlaybackCursor<PlaybackTrack> | null>(null);
   const tracksRef = useRef<readonly PlaybackTrack[]>(tracks);
   const currentTrackRef = useRef<PlaybackTrack | null>(null);
+  const pendingYoutubeTrackRef = useRef<PlaybackTrack | null>(null);
   const engineRef = useRef<{
     provider: PlaybackTrack['provider'];
     engine: PlayerEngine;
@@ -136,6 +137,7 @@ export function usePlayer(
   const playTrack = useCallback(
     async (track: PlaybackTrack): Promise<void> => {
       if (currentTrackRef.current?.id !== track.id) setPrepared(false);
+      pendingYoutubeTrackRef.current = null;
       currentTrackRef.current = track;
       setCurrentTrack(track);
       setCurrentTime(0);
@@ -143,6 +145,10 @@ export function usePlayer(
       setMessage(null);
       errorHandledIdRef.current = null;
       setIsLoading(true);
+      if (track.provider === 'youtube' && containerRef && !containerRef.current) {
+        pendingYoutubeTrackRef.current = track;
+        return;
+      }
       try {
         const engine = getEngine(track);
         const requestId = ++playRequestRef.current;
@@ -182,9 +188,22 @@ export function usePlayer(
         }
       }
     },
-    [getEngine, setPlaying],
+    [containerRef, getEngine, setPlaying],
   );
   playTrackRef.current = playTrack;
+
+  useLayoutEffect(() => {
+    const pendingTrack = pendingYoutubeTrackRef.current;
+    if (!pendingTrack) return;
+    if (pendingTrack.id !== currentTrackRef.current?.id) {
+      pendingYoutubeTrackRef.current = null;
+      return;
+    }
+    if (!containerRef?.current) return;
+
+    pendingYoutubeTrackRef.current = null;
+    void playTrackRef.current(pendingTrack);
+  }, [containerRef, currentTrack]);
 
   const playCurrent = useCallback(() => {
     const track = currentTrackRef.current ?? cursorRef.current?.current?.value ?? null;

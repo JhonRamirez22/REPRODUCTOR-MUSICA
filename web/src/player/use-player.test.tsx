@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { useRef } from 'react';
+import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
@@ -87,6 +88,63 @@ describe('usePlayer', () => {
     await waitFor(() => expect(result.current.currentTrack?.id).toBe(localTrack.id));
     expect(engine.loadedTrack?.provider).toBe('local');
     expect(engine.playCount).toBe(2);
+  });
+
+  it('waits for the visible YouTube host when returning from a local file', async () => {
+    const youtubeTrack: Track = {
+      ...makeTrack('00000000-0000-4000-8000-000000000032', 'Pista de YouTube'),
+      provider: 'youtube',
+      sourceId: 'abcdefghijk',
+      sourceUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+    };
+    const localTrack: LocalTrack = {
+      id: '00000000-0000-4000-8000-000000000033',
+      title: 'Archivo local',
+      artist: null,
+      durationSec: null,
+      thumbnailUrl: null,
+      provider: 'local',
+      playlistId: youtubeTrack.playlistId,
+      file: new File(['audio'], 'archivo.mp3', { type: 'audio/mpeg' }),
+    };
+    const youtubeEngine = new FakePlayerEngine();
+    const audioEngine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = (provider, container) => {
+      if (provider === 'youtube') {
+        expect(container).not.toBeNull();
+        return youtubeEngine;
+      }
+      return audioEngine;
+    };
+    let player: ReturnType<typeof usePlayer> | null = null;
+    const getPlayer = (): ReturnType<typeof usePlayer> => {
+      if (!player) throw new Error('El reproductor todavía no está disponible.');
+      return player;
+    };
+
+    function Harness({ queue }: { queue: readonly PlaybackTrack[] }) {
+      const youtubeHost = useRef<HTMLDivElement | null>(null);
+      const state = usePlayer(queue, youtubeHost, factory);
+      player = state;
+      return state.currentTrack?.provider === 'youtube' ? <div ref={youtubeHost} /> : null;
+    }
+
+    const { rerender } = render(<Harness queue={[youtubeTrack]} />);
+    await waitFor(() => expect(getPlayer().currentTrack?.id).toBe(youtubeTrack.id));
+    act(() => getPlayer().togglePlay());
+    await waitFor(() => expect(youtubeEngine.playCount).toBe(1));
+
+    rerender(<Harness queue={[youtubeTrack, localTrack]} />);
+    await waitFor(() => expect(getPlayer().currentTrack?.id).toBe(youtubeTrack.id));
+    expect(getPlayer().unavailableIds.has(youtubeTrack.id)).toBe(false);
+
+    act(() => getPlayer().playTrack(localTrack.id));
+    await waitFor(() => expect(audioEngine.playCount).toBe(1));
+    act(() => getPlayer().playTrack(youtubeTrack.id));
+
+    await waitFor(() => expect(youtubeEngine.playCount).toBe(2));
+    expect(youtubeEngine.loadedTrack?.id).toBe(youtubeTrack.id);
+    expect(getPlayer().unavailableIds.has(youtubeTrack.id)).toBe(false);
   });
 
   it('loads and advances tracks through the linked playback cursor', async () => {
