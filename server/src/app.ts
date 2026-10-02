@@ -12,10 +12,12 @@ import type { AppConfig } from './config.js';
 import { HttpError } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { catalogRoutes } from './routes/catalog.js';
+import { authRoutes } from './routes/auth.js';
 import { playlistRoutes } from './routes/playlists.js';
 import { JamendoService } from './services/jamendo-service.js';
 import { YtMusicService } from './services/ytmusic-service.js';
 import { PlaylistService } from './services/playlist-service.js';
+import { AuthService } from './services/auth-service.js';
 
 export interface BuildAppOptions {
   config: AppConfig;
@@ -48,6 +50,7 @@ export async function buildApp({
       bodyLimit: config.BODY_LIMIT_BYTES,
     });
   const playlistService = new PlaylistService(pool, config);
+  const authService = new AuthService(pool);
 
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof HttpError) {
@@ -130,6 +133,7 @@ export async function buildApp({
     }),
   });
   await app.register(healthRoutes, { prefix: '/api', pool });
+  await app.register(authRoutes, { prefix: '/api', service: authService, config });
   await app.register(catalogRoutes, {
     prefix: '/api',
     service: catalog,
@@ -141,6 +145,7 @@ export async function buildApp({
     service: playlistService,
     catalog,
     config,
+    auth: authService,
   });
 
   if (webAssets) {

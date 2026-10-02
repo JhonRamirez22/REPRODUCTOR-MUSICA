@@ -15,6 +15,18 @@ export const CatalogTrackSchema = z.object({
 export const CatalogStatusSchema = z.object({ enabled: z.boolean() });
 export const CatalogSearchResponseSchema = z.object({ tracks: z.array(CatalogTrackSchema) });
 
+export const AuthUserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email().max(254),
+});
+
+export const AuthSessionSchema = z.object({ user: AuthUserSchema.nullable() });
+export const AuthResponseSchema = z.object({ user: AuthUserSchema });
+export const AuthCredentialsSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  password: z.string().min(12).max(128),
+});
+
 export const TrackSchema = z.object({
   id: z.string().uuid(),
   playlistId: z.string().uuid(),
@@ -91,6 +103,8 @@ export type Provider = z.infer<typeof ProviderSchema>;
 export type CatalogTrack = z.infer<typeof CatalogTrackSchema>;
 export type CatalogSearchResponse = z.infer<typeof CatalogSearchResponseSchema>;
 export type CatalogStatus = z.infer<typeof CatalogStatusSchema>;
+export type AuthUser = z.infer<typeof AuthUserSchema>;
+export type AuthCredentials = z.infer<typeof AuthCredentialsSchema>;
 export type Track = z.infer<typeof TrackSchema>;
 export type Playlist = z.infer<typeof PlaylistSchema>;
 export type PlaylistSummary = z.infer<typeof PlaylistSummarySchema>;
