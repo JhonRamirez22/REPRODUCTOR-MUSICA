@@ -13,19 +13,27 @@ interface AuthDialogProps {
 
 export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: AuthDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && !dialogRef.current?.open) dialogRef.current?.showModal();
+    let focusTimeout: number | undefined;
+    if (open) {
+      if (!dialogRef.current?.open) dialogRef.current?.showModal();
+      focusTimeout = window.setTimeout(() => emailInputRef.current?.focus(), 0);
+    }
     if (!open && dialogRef.current?.open) dialogRef.current.close();
     if (open) {
       setEmail('');
       setPassword('');
       setError(null);
     }
+    return () => {
+      if (focusTimeout !== undefined) window.clearTimeout(focusTimeout);
+    };
   }, [open]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -52,7 +60,7 @@ export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: Auth
       aria-labelledby="auth-dialog-title"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (!saving) onClose();
       }}
     >
       <form onSubmit={(event) => void handleSubmit(event)}>
@@ -64,10 +72,16 @@ export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: Auth
             <p className="dialog-intro">
               {mode === 'register'
                 ? 'Las playlists de este navegador quedarán vinculadas a tu cuenta para abrirlas desde otros dispositivos.'
-                : 'Continúa con las playlists de tu cuenta.'}
+                : 'Inicia sesión para cargar las playlists de tu cuenta desde la nube.'}
             </p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar">
+          <button
+            className="icon-button"
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            disabled={saving}
+          >
             <Icon name="close" />
           </button>
         </div>
@@ -76,11 +90,11 @@ export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: Auth
           Correo electrónico
         </label>
         <input
+          ref={emailInputRef}
           id="account-email"
           className="text-input"
           type="email"
           autoComplete="email"
-          autoFocus
           maxLength={254}
           required
           value={email}
@@ -105,12 +119,13 @@ export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: Auth
         />
         <p className="field-hint" id="account-password-hint">
           {mode === 'register'
-            ? 'Usa al menos 12 caracteres. Los archivos locales no se suben ni se sincronizan.'
-            : 'Las playlists se sincronizan. Los archivos locales permanecen en este dispositivo solo durante esta sesión.'}
+            ? 'Usa al menos 12 caracteres y guarda tu contraseña en un lugar seguro.'
+            : 'Los archivos locales no se sincronizan; vuelve a seleccionarlos en cada dispositivo.'}
         </p>
         <p className="auth-policy-note">
-          No hay confirmación por correo ni recuperación de contraseña automática. Usa una dirección
-          que reconozcas y guarda tu contraseña.
+          {mode === 'register'
+            ? 'Los archivos locales no se suben ni se vinculan a tu cuenta. No hay recuperación automática de contraseña.'
+            : 'No hay recuperación automática de contraseña. Si no tienes cuenta, puedes crearla desde aquí.'}
         </p>
 
         {error && (
@@ -140,7 +155,13 @@ export function AuthDialog({ open, mode, onClose, onModeChange, onSubmit }: Auth
             Cancelar
           </button>
           <button className="button button-primary" type="submit" disabled={saving}>
-            {saving ? 'Conectando…' : mode === 'register' ? 'Crear cuenta' : 'Iniciar sesión'}
+            {saving
+              ? mode === 'register'
+                ? 'Creando cuenta…'
+                : 'Iniciando sesión…'
+              : mode === 'register'
+                ? 'Crear cuenta'
+                : 'Iniciar sesión'}
           </button>
         </div>
       </form>

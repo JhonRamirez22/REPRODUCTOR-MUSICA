@@ -2,38 +2,36 @@
 
 ## Dirección
 
-**Modo: Operate.** Una mesa de escucha personal con la claridad de un índice musical impreso: la pista activa y su carátula real ocupan el escenario; la lista doble aparece como una secuencia legible y manipulable. El sistema se deriva del comportamiento real de la cola, no de un catálogo de demostración.
+**Modo: Operate.** Un reproductor editorial oscuro donde la portada y la pista activa llevan el peso visual. La lista doble se mantiene visible como una cola real, directa y operable. No hay catálogo de demostración: el contenido viene de YouTube Music o de archivos elegidos por la persona.
 
 ## Primera vista
 
-En escritorio, la pantalla se organiza en tres zonas estables: playlists a la izquierda, reproducción al centro y cola a la derecha. El video visible de YouTube, el título y los controles dominan el centro. En móvil, la navegación se compacta arriba, el contenido pasa a una columna y los controles quedan fijos abajo; la cola se abre como panel inferior.
+En escritorio, la barra lateral agrupa playlists y cuenta, la pista ocupa el escenario central y la cola permanece a la derecha. En móvil, la barra lateral se abre desde el menú superior, los controles se compactan en la parte inferior y la cola aparece como panel deslizable. El CTA de cuenta presenta explícitamente la sincronización para que la persistencia entre dispositivos sea visible desde el primer uso.
 
-## Recorrido
+## Recorrido de cuenta y biblioteca
 
-Crear una playlist, buscar una canción o artista en YouTube Music, elegir un resultado y su posición, y reproducirlo en el video visible. Desde el cuadro de alta también se pueden agregar archivos locales a la playlist activa durante la sesión; se indica que esos archivos no se suben y que habrá que elegirlos de nuevo tras recargar. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa.
+Una persona puede crear una cuenta o iniciar sesión desde la sección «Sincroniza tus playlists». El registro vincula a la cuenta las playlists anónimas creadas en ese mismo navegador. La autenticación carga la biblioteca de la cuenta desde Aurora PostgreSQL, por lo que las playlists y las pistas elegidas del catálogo siguen disponibles en otros dispositivos. La cola y la fuente actual se reinician al cambiar de cuenta para no mezclar contenido entre propietarios.
 
-## Interacción distintiva
-
-Cada fila muestra una conexión vertical discreta que hace visible el orden enlazado sin convertir la interfaz en un diagrama. Los botones accesibles de subir y bajar siguen ofreciendo el mismo reordenamiento sin arrastrar.
+Los archivos locales son temporales: se agregan a la cola en memoria del navegador, no se suben y se deben volver a elegir después de cambiar de dispositivo o iniciar otra sesión. La UI informa el límite antes de enviar esos archivos. La cuenta usa correo y contraseña; no existe recuperación automática ni confirmación por correo.
 
 ## Color y contraste
 
-Se usa la paleta cálida oscura del brief: fondo `#121110`, superficies `#1b1917` y `#25221f`, texto `#f3efe9`, texto secundario `#a39b91` y acento coral `#ff6b3d`. El acento se reserva para reproducir, la selección activa y el foco. Los controles sobre coral usan texto oscuro `#121110`.
+El tema oscuro editorial usa fondo `#0b0b0c`, superficies `#121214`, `#19191b` y `#242426`, texto `#f2f0eb` y secundarios con opacidad del 58% y 34%. El acento base es `#c7a876`; cuando la pista tiene una portada accesible, se muestrea en un canvas nativo, se ajusta para texto AA frente al fondo y se asigna a `--accent`. Si la portada no se puede leer por CORS o falta, se conserva el acento base. Un halo tenue de hasta 11% sigue el color de la portada.
 
-El modo oscuro es el valor predeterminado. Cuando el sistema operativo solicita un tema claro, la interfaz usa una variante cálida (`#f4f0ea`, superficies marfil y acento `#b93f1b`); `data-theme="dark"` mantiene el modo oscuro explícito.
+La app empieza en oscuro y respeta movimiento reducido. Hay tokens claros explícitos para una variante futura, pero el producto no cambia de tema automáticamente por la preferencia del sistema.
 
 ## Tipografía y forma
 
-La UI emplea una pila nativa legible con fallback local; no depende de fuentes remotas. Títulos, nombres y duraciones crean jerarquía mediante tamaño, peso y espacio. Superficies planas, bordes finos y radios contenidos mantienen la densidad del reproductor sin paneles anidados ni sombras decorativas.
+DM Sans organiza controles y metadatos; Instrument Serif resalta el nombre de la canción. Ambas fuentes se sirven localmente desde archivos WOFF2 con sus licencias OFL para evitar una dependencia de red en la carga. La portada usa un radio de 20 px. El resto prefiere separación, líneas de borde suaves y superficies planas; el acento identifica estado activo, reproducción y foco.
 
 ## Movimiento
 
-Las transiciones de estado duran entre 150 y 250 ms y usan `transform` u `opacity`. `prefers-reduced-motion` elimina el desplazamiento y conserva los cambios de estado.
+Framer Motion utiliza el spring de marca `{ stiffness: 300, damping: 30, mass: 0.8 }` para cambios de posición, y reduce los cambios a fades breves cuando la persona tiene `prefers-reduced-motion`. La cola admite tanto arrastre como botones de mover; en móvil el panel se puede abrir con su CTA además de arrastrarlo. El progreso usa MotionValue para evitar renderizar React en cada actualización de tiempo.
 
 ## Accesibilidad
 
-Foco visible, etiquetas en botones de icono, controles nativos, objetivos táctiles de al menos 44 px, cambios de pista en una región `aria-live="polite"`, lista semántica y operación completa por teclado.
+Foco visible, etiquetas accesibles, controles por teclado y áreas táctiles de al menos 44 px. Al abrir registro o login, el foco comienza en el campo de correo. La cola móvil atrapa foco mientras está abierta y conserva los controles accesibles de orden. Las barras de progreso anuncian tiempo y duración.
 
 ## Límites
 
-No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No aceptar enlaces de música introducidos manualmente; las pistas se descubren mediante `ytmusicapi`. Los archivos elegidos por la persona se reproducen localmente sin subirlos. No ocultar el reproductor de YouTube ni extraer audio. No usar degradados decorativos, brillos, emojis, tarjetas anidadas ni controles solo por arrastre. El contenido de terceros se representa desde sus metadatos o miniaturas reales.
+No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No aceptar enlaces de música introducidos manualmente; las pistas se descubren mediante `ytmusicapi`. Los archivos locales se reproducen desde el navegador sin subirlos. No ocultar el reproductor oficial de YouTube ni extraer audio. El proyecto requiere mantener las funciones y la persistencia existentes mientras se rediseña la interfaz.

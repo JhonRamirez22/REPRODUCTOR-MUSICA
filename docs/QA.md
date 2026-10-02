@@ -1,44 +1,35 @@
 # Revisión de calidad
 
-Actualizada el 1 de octubre de 2026 tras integrar reproducción temporal de archivos locales.
+Actualizada el 2 de octubre de 2026 para el rediseño editorial y la revisión de cuentas.
 
-## Compilación y análisis estático
+## Compilación y pruebas
 
-- `npm run lint`: correcto; ESLint y Prettier pasaron.
-- `npm run typecheck`: correcto en `shared`, `server` y `web`.
-- `npm run check`: correcto; **55 pruebas pasaron** y 3 pruebas PostgreSQL se omitieron porque no se configuró `TEST_DATABASE_URL`.
-- `npm run build`: correcto. El bundle web quedó en 340.00 kB (99.34 kB gzip) de JavaScript y 26.59 kB (5.85 kB gzip) de CSS.
-- `impeccable detect --json` sobre los componentes y estilos modificados: `[]`, sin hallazgos.
+- `npm run check`: ESLint, Prettier y TypeScript pasan; **70 pruebas pasan y 3 pruebas de integración PostgreSQL se omiten** porque no está configurada `TEST_DATABASE_URL`.
+- `npm run build:vercel`: correcto, sin advertencias de tamaño. Salida web: 350.37 kB para la app (102.25 kB gzip), 148.99 kB para animación (49.56 kB gzip) y 41.56 kB de CSS (8.76 kB gzip).
+- La prueba de autenticación verifica el alta vinculando las playlists anónimas actuales, inicio de sesión desde una segunda sesión de navegador, correo duplicado, credenciales inválidas y revocación al cerrar sesión. Usa una base de prueba en memoria; no se creó una cuenta de presentación en producción.
 
-## Catálogo y reproducción
+## Revisión de interfaz
 
-- `server/python/search.py` consultó en vivo `ytmusicapi` con `Oasis Wonderwall` y devolvió 20 resultados válidos. También se comprobó `/api/catalog/search` en el servidor compilado.
-- La prueba manual anterior en navegador buscó una canción, la agregó desde resultados, confirmó la persistencia en PostgreSQL y reprodujo el video en el iframe oficial de YouTube. La playlist temporal de QA se eliminó.
-- La búsqueda simulada verifica reintento después de falta del paquete; la UI no enseña instrucciones de configuración del servidor, y el alta rechaza posiciones inválidas.
-- La UI no acepta enlaces para altas nuevas. Solo agrega un video elegido de resultados y el servidor verifica de nuevo que corresponda a la consulta.
-- YouTube pausa al ocultarse la página y no registra controles de Media Session: sus políticas prohíben reproducir YouTube en segundo plano. Media Session queda disponible para fuentes de audio directo.
-- La selección local acepta varios archivos de audio, valida tipos y extensiones reconocidos, los asocia a la playlist activa en la cola enlazada de esta sesión y no llama a la API. La URL `blob:` se revoca al cambiar de fuente o destruir el motor.
-- En el navegador se eligió un WAV de prueba de ocho segundos; el título local apareció en reproducción y el tiempo avanzó. El archivo se procesó solo en el navegador.
+- Se inspeccionaron el estado vacío, el acceso a cuenta y el registro en escritorio, breakpoint intermedio y móvil. En 360 px CSS el documento mide 360 px y el reproductor queda entre los márgenes internos; en 1100 px CSS la cola termina dentro del viewport. Ambos anchos quedan sin desbordamiento horizontal.
+- El formulario móvil cabe dentro de 360 × 800 px y el cursor inicia en el correo. La sección de cuenta está en la barra lateral de escritorio y detrás del menú de playlists en móvil.
+- La UI comunica que las playlists se vinculan al crear la cuenta y se consultan desde la nube al iniciar sesión. Los archivos locales no se suben ni sincronizan y se vuelven a seleccionar por dispositivo/sesión.
+- El cambio de usuario invalida listas y pistas que todavía estaban cargando, y limpia contenido y archivos temporales antes de cargar la biblioteca asociada a la nueva sesión. «Reintentar» vuelve a comprobar la sesión para recuperar errores transitorios o un cambio de cuenta en otra pestaña.
+- Escape y los botones de cierre quedan bloqueados mientras la API procesa el inicio de sesión o el registro.
+- La revisión de código y la prueba de autenticación cubren el flujo de cuenta sin añadir ni modificar rutas de backend en esta fase.
 
-## Interfaz y accesibilidad
+## Producción
 
-- Revisión visual manual en escritorio (1270 × 714) y móvil (360 × 800): sin desbordamiento horizontal. La cola vacía sin playlists invita a crear una.
-- Los objetivos táctiles de móvil tienen al menos 44 × 44 px. El reproductor muestra los atajos de teclado. Se verificaron variantes oscura y clara.
-- Contraste calculado: texto principal 16.47:1 en oscuro y 14.25:1 en claro; texto secundario 6.39:1 y 6.44:1; texto del botón acento 6.67:1 y 5.46:1.
-- La crítica de interfaz encontró y corrigió mensajes internos de configuración, CTA incorrecta cuando no existen playlists, validación del índice y falta de pista visible de atajos.
-- La CLI de Impeccable instalada no incluye comandos `audit`, `critique` ni `polish`; se usaron las guías de la skill y dos revisiones independientes, además del detector disponible.
-- Lighthouse móvil: **Accesibilidad 100 y Buenas prácticas 100**. La captura no se incorpora al README, según la decisión del usuario.
+- El despliegue existente usa Vercel para la interfaz, ECS Express Mode para la API y Aurora PostgreSQL para persistencia. `vercel.json` reescribe `/api/*` al origen HTTPS y evita cachear respuestas privadas.
+- La última comprobación previa a la publicación devolvió `200 {"status":"ok"}` en `/api/health`. Después de publicar se debe comprobar de nuevo el build activo y la misma ruta.
+- No se probó el registro creando una identidad de prueba en la base real, para no dejar datos de prueba permanentes. La comprobación de persistencia entre dispositivos está cubierta por la prueba de servicio con dos cookies de sesión.
 
-## Despliegue local
+## Catálogo y privacidad
 
-- `docker build --tag reproductor-estructuras-datos .`: correcto. La imagen multi-stage instaló `ytmusicapi` y compiló shared, web y server.
-- La imagen arrancó conectada a la base PostgreSQL temporal. `/api/health` devolvió `200`, `/api/catalog/status` devolvió `{ "enabled": true }` y la búsqueda real de YouTube Music devolvió resultados.
-- Prueba HTTP de extremo a extremo: cookie de propietario, creación de playlist, búsqueda real, alta validada por el servidor, recarga con la pista persistida y borrado de la playlist temporal.
-- La vista previa Vite se revisó en `http://127.0.0.1:5173`; la prueba de reproducción usó un WAV sintético temporal.
+- Las pistas de catálogo persisten como metadatos en PostgreSQL; el audio permanece en su proveedor y el video oficial de YouTube sigue visible.
+- Los archivos locales viven en memoria del navegador y se pierden al recargar o cambiar de dispositivo. La interfaz lo explica antes y después de agregarlos.
+- No hay recuperación automática de contraseña ni verificación de correo; la UI y el aviso de privacidad lo indican.
 
-## Límites y despliegue
+## Detector y revisión visual
 
-- `ytmusicapi` es una biblioteca comunitaria no oficial, no una API key. Las búsquedas públicas no requieren credenciales; YouTube puede cambiar las solicitudes que usa la biblioteca.
-- El reproductor de YouTube se conserva visible (mínimo 200 × 200 px). La aplicación no descarga ni separa audio. Las reglas de reproducción en segundo plano se documentan en el README y en `docs/DECISIONS.md`.
-- Frontend público: <https://reproductor-musica-bice.vercel.app>. API pública: <https://re-06c0b12191414b5aa42f2fbea8f52b6a.ecs.us-east-1.on.aws>. La aplicación AWS existente usa Aurora PostgreSQL Express con un día de retención, el límite aceptado por el plan Free.
-- El archivo local se agrega al final de la playlist solo durante la sesión; no se sube, y habrá que elegirlo otra vez tras recargar.
+- `impeccable detect --json` se ejecutó una vez sobre los componentes y estilos afectados. Identificó una transición de altura del progreso, reemplazada por `transform: scaleY()`, y `Instrument Serif`, requerida explícitamente por el brief del usuario. Solo se excluyó ese valor de tipografía en `.impeccable/config.json`.
+- La captura no se incorpora al README, según la decisión previa del usuario.

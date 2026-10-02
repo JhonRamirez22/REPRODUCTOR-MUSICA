@@ -47,6 +47,7 @@ describe('QueuePanel', () => {
         unavailableIds={new Set()}
         open={false}
         mobileViewport={false}
+        onOpen={() => undefined}
         onClose={() => undefined}
         onAdd={() => undefined}
         onAddLocalFiles={() => undefined}
@@ -76,6 +77,7 @@ describe('QueuePanel', () => {
         unavailableIds={new Set()}
         open={false}
         mobileViewport={false}
+        onOpen={() => undefined}
         onClose={() => undefined}
         onAdd={() => undefined}
         onAddLocalFiles={() => undefined}
@@ -106,6 +108,7 @@ describe('QueuePanel', () => {
         unavailableIds={new Set()}
         open={false}
         mobileViewport
+        onOpen={() => undefined}
         onClose={onClose}
         onAdd={() => undefined}
         onAddLocalFiles={() => undefined}
@@ -129,6 +132,7 @@ describe('QueuePanel', () => {
         unavailableIds={new Set()}
         open
         mobileViewport
+        onOpen={() => undefined}
         onClose={onClose}
         onAdd={() => undefined}
         onAddLocalFiles={() => undefined}
@@ -163,6 +167,7 @@ describe('QueuePanel', () => {
         unavailableIds={new Set()}
         open={false}
         mobileViewport={false}
+        onOpen={() => undefined}
         onClose={() => undefined}
         onAdd={() => undefined}
         onAddLocalFiles={() => undefined}

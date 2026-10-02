@@ -166,8 +166,15 @@ export function PlaylistSidebar({
           </p>
         ) : user ? (
           <>
-            <h2 className="account-heading">Cuenta</h2>
+            <h2 className="account-heading">Tu cuenta</h2>
             <p className="account-email">{user.email}</p>
+            <p className={`account-sync${error ? ' account-sync-error' : ''}`} role="status">
+              {loading
+                ? 'Consultando tus playlists…'
+                : error
+                  ? 'No se pudo actualizar la biblioteca.'
+                  : 'Tus playlists están sincronizadas en la nube.'}
+            </p>
             <button
               className="text-button account-action"
               type="button"
@@ -179,8 +186,12 @@ export function PlaylistSidebar({
           </>
         ) : (
           <>
-            <h2 className="account-heading">Guarda tus playlists</h2>
-            <p className="account-copy">Crea una cuenta para abrirlas desde otros dispositivos.</p>
+            <h2 className="account-heading">Sincroniza tus playlists</h2>
+            <p className="account-copy">
+              {playlists.length > 0
+                ? 'Crea una cuenta para abrir estas playlists en otros dispositivos.'
+                : 'Inicia sesión para cargar tu biblioteca o crea una cuenta para guardarla en la nube.'}
+            </p>
             <div className="account-actions">
               <button
                 className="button button-primary account-create"

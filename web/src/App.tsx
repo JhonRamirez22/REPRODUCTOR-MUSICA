@@ -17,8 +17,11 @@ import { QueuePanel } from './components/QueuePanel.js';
 import { api, ApiError } from './api/client.js';
 import { createLocalTracks, type LocalTrack, type PlaybackTrack } from './player/local-track.js';
 import { usePlayer } from './player/use-player.js';
+import { LayoutGroup, MotionConfig, motion } from 'framer-motion';
+import './styles/utilities.css';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/editorial.css';
 
 type NameDialogMode = 'create' | 'rename';
 const EMPTY_TRACKS: readonly Track[] = [];
@@ -83,7 +86,7 @@ function App() {
   const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [mobileViewport, setMobileViewport] = useState(
-    () => window.matchMedia('(max-width: 940px)').matches,
+    () => window.matchMedia('(max-width: 1023px)').matches,
   );
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
@@ -91,6 +94,8 @@ function App() {
   const mobileExpandButtonRef = useRef<HTMLButtonElement>(null);
   const mobileCollapseButtonRef = useRef<HTMLButtonElement>(null);
   const playlistLoadVersion = useRef(0);
+  const playlistListLoadVersion = useRef(0);
+  const authTransitionVersion = useRef(0);
   const activeLocalTracks = activePlaylist
     ? (localTracksByPlaylist[activePlaylist.id] ?? EMPTY_LOCAL_TRACKS)
     : standaloneLocalTracks;
@@ -124,10 +129,12 @@ function App() {
 
   const loadPlaylists = useCallback(
     async (preferredId?: string): Promise<boolean> => {
+      const version = ++playlistListLoadVersion.current;
       setPlaylistsLoading(true);
       setPlaylistsError(null);
       try {
         const result = await api.listPlaylists();
+        if (version !== playlistListLoadVersion.current) return false;
         setPlaylists(result);
         const storedId = preferredId ?? readLastPlaylistId();
         const selected = result.find((playlist) => playlist.id === storedId) ?? result[0];
@@ -140,16 +147,34 @@ function App() {
         }
         return true;
       } catch (error) {
+        if (version !== playlistListLoadVersion.current) return false;
         setPlaylistsError(
           error instanceof Error ? error.message : 'No se pudieron cargar las playlists.',
         );
         return false;
       } finally {
-        setPlaylistsLoading(false);
+        if (version === playlistListLoadVersion.current) setPlaylistsLoading(false);
       }
     },
     [loadPlaylist],
   );
+
+  const retryAccountState = useCallback(async (): Promise<void> => {
+    const version = ++authTransitionVersion.current;
+    setAuthLoading(true);
+    try {
+      const session = await api.authSession();
+      if (version !== authTransitionVersion.current) return;
+      if (session.user?.id !== authUser?.id) clearAccountView();
+      setAuthUser(session.user);
+      await loadPlaylists();
+    } catch (error) {
+      if (version !== authTransitionVersion.current) return;
+      setPlaylistsError(error instanceof Error ? error.message : 'No se pudo comprobar la cuenta.');
+    } finally {
+      if (version === authTransitionVersion.current) setAuthLoading(false);
+    }
+  }, [authUser?.id, loadPlaylists]);
 
   useEffect(() => {
     let active = true;
@@ -181,18 +206,28 @@ function App() {
         mode === 'register'
           ? await api.register(email, password)
           : await api.login(email, password);
+      const hadLocalTracks =
+        standaloneLocalTracks.length > 0 ||
+        Object.values(localTracksByPlaylist).some((localTracks) => localTracks.length > 0);
       setAuthUser(response.user);
       setAuthDialogMode(null);
-      setLocalTracksByPlaylist(EMPTY_LOCAL_TRACK_MAP);
-      saveLastPlaylistId(null);
+      setMobileNavOpen(false);
+      setQueueOpen(false);
+      setMobilePlayerExpanded(false);
+      clearAccountView();
       const loaded = await loadPlaylists();
-      setNotice(
-        loaded
-          ? mode === 'register'
-            ? 'Cuenta creada. Tus playlists ahora están vinculadas a ella.'
-            : 'Sesión iniciada. Tus playlists se cargaron desde la nube.'
-          : 'Sesión iniciada, pero no fue posible cargar las playlists. Reintenta desde la barra lateral.',
-      );
+      const nextStep =
+        mode === 'register'
+          ? loaded
+            ? 'Cuenta creada. Tus playlists ahora se sincronizan con ella.'
+            : 'Cuenta creada. No se pudo cargar la biblioteca; inténtalo de nuevo desde la barra lateral.'
+          : loaded
+            ? 'Sesión iniciada. Tus playlists se cargaron desde la nube.'
+            : 'Sesión iniciada. No se pudo cargar la biblioteca; inténtalo de nuevo desde la barra lateral.';
+      const localNote = hadLocalTracks
+        ? ' Los archivos locales se quitaron del reproductor; puedes volver a seleccionarlos en este dispositivo. No se suben ni se sincronizan.'
+        : '';
+      setNotice(`${nextStep}${localNote}`);
     } finally {
       setAuthActionLoading(false);
     }
@@ -203,8 +238,12 @@ function App() {
     try {
       await api.logout();
       setAuthUser(null);
+      setMobileNavOpen(false);
+      setQueueOpen(false);
+      setMobilePlayerExpanded(false);
+      clearAccountView();
       setLocalTracksByPlaylist(EMPTY_LOCAL_TRACK_MAP);
-      saveLastPlaylistId(null);
+      setStandaloneLocalTracks(EMPTY_LOCAL_TRACKS);
       const loaded = await loadPlaylists();
       setNotice(
         loaded
@@ -218,8 +257,23 @@ function App() {
     }
   }
 
+  function clearAccountView(): void {
+    authTransitionVersion.current += 1;
+    playlistListLoadVersion.current += 1;
+    playlistLoadVersion.current += 1;
+    setAuthLoading(false);
+    setPlaylists([]);
+    setActivePlaylist(null);
+    setPlaylistLoading(false);
+    setPlaylistError(null);
+    setPlaylistsError(null);
+    setLocalTracksByPlaylist(EMPTY_LOCAL_TRACK_MAP);
+    setStandaloneLocalTracks(EMPTY_LOCAL_TRACKS);
+    saveLastPlaylistId(null);
+  }
+
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 940px)');
+    const mediaQuery = window.matchMedia('(max-width: 1023px)');
     const updateViewport = (): void => setMobileViewport(mediaQuery.matches);
     mediaQuery.addEventListener('change', updateViewport);
     return () => mediaQuery.removeEventListener('change', updateViewport);
@@ -372,16 +426,14 @@ function App() {
 
   async function moveTrack(track: PlaybackTrack, toIndex: number): Promise<void> {
     if (track.provider === 'local') {
-      const currentIndex = tracks.findIndex((item) => item.id === track.id);
       const localTracks = track.playlistId
         ? (localTracksByPlaylist[track.playlistId] ?? EMPTY_LOCAL_TRACKS)
         : standaloneLocalTracks;
       const localIndex = localTracks.findIndex((item) => item.id === track.id);
-      const targetIndex = localIndex + Math.sign(toIndex - currentIndex);
-      if (localIndex < 0 || targetIndex < 0 || targetIndex >= localTracks.length) return;
+      if (localIndex < 0 || toIndex < 0 || toIndex >= localTracks.length) return;
 
       const list = DoublyLinkedList.from(localTracks.map((item) => ({ id: item.id, value: item })));
-      list.moveTo(track.id, targetIndex);
+      list.moveTo(track.id, toIndex);
       const reorderedTracks = list.toArray();
       if (track.playlistId) {
         const playlistId = track.playlistId;
@@ -426,12 +478,24 @@ function App() {
     if (event.code === 'Space') {
       event.preventDefault();
       playerRef.current.togglePlay();
-    } else if (event.key === 'ArrowLeft') {
+    } else if (event.key === 'ArrowLeft' && event.shiftKey) {
       event.preventDefault();
       playerRef.current.previous();
-    } else if (event.key === 'ArrowRight') {
+    } else if (event.key === 'ArrowRight' && event.shiftKey) {
       event.preventDefault();
       playerRef.current.next();
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      playerRef.current.seek(playerRef.current.currentTimeMotion.get() - 5);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      playerRef.current.seek(playerRef.current.currentTimeMotion.get() + 5);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      playerRef.current.setVolume(playerRef.current.volume + 0.05);
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      playerRef.current.setVolume(playerRef.current.volume - 0.05);
     } else if (event.key.toLowerCase() === 'm') {
       playerRef.current.toggleMute();
     }
@@ -459,199 +523,231 @@ function App() {
   const selectedPlaylistId = activePlaylist?.id ?? null;
 
   return (
-    <div className="app-shell">
-      <PlaylistSidebar
-        open={mobileNavOpen}
-        mobileViewport={mobileViewport}
-        playlists={playlists}
-        selectedId={selectedPlaylistId}
-        loading={playlistsLoading}
-        error={playlistsError}
-        user={authUser}
-        authLoading={authLoading}
-        authActionLoading={authActionLoading}
-        onSelect={(id) => {
-          void loadPlaylist(id);
-          setMobileNavOpen(false);
-        }}
-        onCreate={() => setNameDialog({ mode: 'create' })}
-        onRename={(playlist) => setNameDialog({ mode: 'rename', playlist })}
-        onDelete={(playlist) => void deletePlaylist(playlist)}
-        onRetry={() => void loadPlaylists()}
-        onOpenAuth={setAuthDialogMode}
-        onLogout={() => void logout()}
-        onClose={() => setMobileNavOpen(false)}
-      />
+    <MotionConfig
+      transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+      reducedMotion="user"
+    >
+      <LayoutGroup id="listening-room">
+        <div className="app-shell">
+          <PlaylistSidebar
+            open={mobileNavOpen}
+            mobileViewport={mobileViewport}
+            playlists={playlists}
+            selectedId={selectedPlaylistId}
+            loading={playlistsLoading}
+            error={playlistsError}
+            user={authUser}
+            authLoading={authLoading}
+            authActionLoading={authActionLoading}
+            onSelect={(id) => {
+              void loadPlaylist(id);
+              setMobileNavOpen(false);
+            }}
+            onCreate={() => setNameDialog({ mode: 'create' })}
+            onRename={(playlist) => setNameDialog({ mode: 'rename', playlist })}
+            onDelete={(playlist) => void deletePlaylist(playlist)}
+            onRetry={() => void retryAccountState()}
+            onOpenAuth={setAuthDialogMode}
+            onLogout={() => void logout()}
+            onClose={() => setMobileNavOpen(false)}
+          />
 
-      {mobileNavOpen && (
-        <button
-          className="mobile-scrim"
-          type="button"
-          onClick={() => setMobileNavOpen(false)}
-          aria-label="Cerrar navegación"
-        />
-      )}
-      {queueOpen && (
-        <button
-          className="queue-scrim"
-          type="button"
-          onClick={() => setQueueOpen(false)}
-          aria-label="Cerrar cola"
-        />
-      )}
+          {mobileNavOpen && (
+            <button
+              className="mobile-scrim"
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Cerrar navegación"
+            />
+          )}
+          {queueOpen && (
+            <button
+              className="queue-scrim"
+              type="button"
+              onClick={() => setQueueOpen(false)}
+              aria-label="Cerrar cola"
+            />
+          )}
 
-      <div className="mobile-topbar">
-        <button
-          ref={mobileNavTriggerRef}
-          className="icon-button"
-          type="button"
-          onClick={() => setMobileNavOpen(true)}
-          aria-label="Abrir playlists"
-          aria-expanded={mobileNavOpen}
-          aria-controls="playlist-sidebar"
-        >
-          <Icon name="menu" />
-        </button>
-        <span className="mobile-brand">
-          <Icon name="brand" size={18} /> Reproductor
-        </span>
-        <button
-          ref={queueTriggerRef}
-          className="icon-button"
-          type="button"
-          onClick={() => setQueueOpen(true)}
-          aria-label="Abrir cola"
-          aria-expanded={queueOpen}
-          aria-controls="queue-panel"
-        >
-          <Icon name="music" />
-        </button>
-      </div>
-
-      <div className="workspace">
-        <NowPlaying
-          playlist={activePlaylist}
-          tracks={tracks}
-          player={player}
-          playerContainerRef={playerContainerRef}
-          mobileExpanded={mobilePlayerExpanded}
-          loading={playlistLoading}
-          error={playlistError}
-          onAddTrack={() => setAddTrackOpen(true)}
-          onAddLocalFiles={addLocalFiles}
-          onCreatePlaylist={() => setNameDialog({ mode: 'create' })}
-          onRetry={() => activePlaylist && void loadPlaylist(activePlaylist.id)}
-          onCollapseMobilePlayer={() => setMobilePlayerExpanded(false)}
-          mobileCollapseButtonRef={mobileCollapseButtonRef}
-        />
-        <QueuePanel
-          playlistName={
-            activePlaylist?.name ?? (standaloneLocalTracks.length > 0 ? 'Archivos locales' : null)
-          }
-          hasPlaylists={playlists.length > 0}
-          tracks={tracks}
-          currentTrackId={player.currentTrack?.id ?? null}
-          unavailableIds={player.unavailableIds}
-          open={queueOpen}
-          mobileViewport={mobileViewport}
-          onClose={() => setQueueOpen(false)}
-          onAdd={() => {
-            setAddTrackOpen(true);
-          }}
-          onAddLocalFiles={addLocalFiles}
-          onCreatePlaylist={() => {
-            setQueueOpen(false);
-            setNameDialog({ mode: 'create' });
-          }}
-          onPlay={player.playTrack}
-          onMove={(track, toIndex) => void moveTrack(track, toIndex)}
-          onRemove={(track) => void removeTrack(track)}
-        />
-      </div>
-
-      <footer className="app-footer">
-        <span>Reproduce YouTube Music y archivos locales desde este dispositivo.</span>
-        <a href="/privacy.html">Privacidad</a>
-      </footer>
-
-      {player.currentTrack && !mobilePlayerExpanded && (
-        <div className="mobile-player" aria-label="Controles de reproducción móvil">
-          <button
-            ref={mobileExpandButtonRef}
-            className="mobile-player-copy"
-            type="button"
-            aria-label={`Ampliar reproductor: ${player.currentTrack.title}`}
-            onClick={() => setMobilePlayerExpanded(true)}
-          >
-            <span className="mobile-player-title">{player.currentTrack.title}</span>
-            <span className="mobile-player-artist">
-              {player.currentTrack.artist || sourceLabel(player.currentTrack.provider)}
+          <div className="mobile-topbar">
+            <button
+              ref={mobileNavTriggerRef}
+              className="icon-button"
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Abrir playlists"
+              aria-expanded={mobileNavOpen}
+              aria-controls="playlist-sidebar"
+            >
+              <Icon name="menu" />
+            </button>
+            <span className="mobile-brand">
+              <Icon name="brand" size={18} /> Reproductor
             </span>
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Anterior"
-            onClick={player.previous}
-          >
-            <Icon name="previous" size={20} />
-          </button>
-          <button
-            className="play-button mobile-play"
-            type="button"
-            aria-label={player.isPlaying ? 'Pausar' : 'Reproducir'}
-            disabled={player.isLoading}
-            onClick={player.togglePlay}
-          >
-            <Icon name={player.isPlaying ? 'pause' : 'play'} size={20} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Siguiente"
-            onClick={player.next}
-          >
-            <Icon name="next" size={20} />
-          </button>
-        </div>
-      )}
+            <button
+              ref={queueTriggerRef}
+              className="icon-button"
+              type="button"
+              onClick={() => setQueueOpen(true)}
+              aria-label="Abrir cola"
+              aria-expanded={queueOpen}
+              aria-controls="queue-panel"
+            >
+              <Icon name="music" />
+            </button>
+          </div>
 
-      {notice && (
-        <div className="notice" role="status">
-          <span>{notice}</span>
-          <button
-            className="icon-button compact"
-            type="button"
-            aria-label="Cerrar aviso"
-            onClick={() => setNotice(null)}
-          >
-            <Icon name="close" size={16} />
-          </button>
-        </div>
-      )}
+          <div className="workspace">
+            <NowPlaying
+              playlist={activePlaylist}
+              tracks={tracks}
+              player={player}
+              playerContainerRef={playerContainerRef}
+              mobileExpanded={mobilePlayerExpanded}
+              loading={playlistLoading}
+              error={playlistError}
+              onAddTrack={() => setAddTrackOpen(true)}
+              onAddLocalFiles={addLocalFiles}
+              onCreatePlaylist={() => setNameDialog({ mode: 'create' })}
+              onRetry={() => activePlaylist && void loadPlaylist(activePlaylist.id)}
+              onCollapseMobilePlayer={() => setMobilePlayerExpanded(false)}
+              mobileCollapseButtonRef={mobileCollapseButtonRef}
+            />
+            <QueuePanel
+              playlistName={
+                activePlaylist?.name ??
+                (standaloneLocalTracks.length > 0 ? 'Archivos locales' : null)
+              }
+              hasPlaylists={playlists.length > 0}
+              tracks={tracks}
+              currentTrackId={player.currentTrack?.id ?? null}
+              unavailableIds={player.unavailableIds}
+              open={queueOpen}
+              mobileViewport={mobileViewport}
+              onOpen={() => setQueueOpen(true)}
+              onClose={() => setQueueOpen(false)}
+              onAdd={() => {
+                setAddTrackOpen(true);
+              }}
+              onAddLocalFiles={addLocalFiles}
+              onCreatePlaylist={() => {
+                setQueueOpen(false);
+                setNameDialog({ mode: 'create' });
+              }}
+              onPlay={player.playTrack}
+              onMove={(track, toIndex) => void moveTrack(track, toIndex)}
+              onRemove={(track) => void removeTrack(track)}
+            />
+          </div>
 
-      <PlaylistNameDialog
-        open={nameDialog !== null}
-        mode={nameDialog?.mode ?? 'create'}
-        initialName={nameDialog?.playlist?.name ?? ''}
-        onClose={() => setNameDialog(null)}
-        onSubmit={nameDialog?.mode === 'rename' ? renamePlaylist : createPlaylist}
-      />
-      <AuthDialog
-        open={authDialogMode !== null}
-        mode={authDialogMode ?? 'login'}
-        onClose={() => setAuthDialogMode(null)}
-        onModeChange={setAuthDialogMode}
-        onSubmit={submitAuth}
-      />
-      <AddTrackDialog
-        open={addTrackOpen}
-        playlist={activePlaylist}
-        onClose={() => setAddTrackOpen(false)}
-        onAdd={addTrack}
-        onAddLocalFiles={addLocalFiles}
-      />
-    </div>
+          <footer className="app-footer">
+            <span>Reproduce YouTube Music y archivos locales desde este dispositivo.</span>
+            <a href="/privacy.html">Privacidad</a>
+          </footer>
+
+          {player.currentTrack && !mobilePlayerExpanded && (
+            <div className="mobile-player" aria-label="Controles de reproducción móvil">
+              <button
+                ref={mobileExpandButtonRef}
+                className="mobile-player-copy"
+                type="button"
+                aria-label={`Ampliar reproductor: ${player.currentTrack.title}`}
+                onClick={() => setMobilePlayerExpanded(true)}
+              >
+                {player.currentTrack.thumbnailUrl ? (
+                  <motion.div className="mobile-player-art" layoutId="current-cover">
+                    <img
+                      src={player.currentTrack.thumbnailUrl}
+                      alt=""
+                      width={42}
+                      height={42}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    className="mobile-player-art mobile-art-fallback"
+                    layoutId="current-cover"
+                  >
+                    <Icon name="brand" size={19} />
+                  </motion.div>
+                )}
+                <span className="mobile-player-copy-text">
+                  <motion.span className="mobile-player-title" layoutId="current-track-title">
+                    {player.currentTrack.title}
+                  </motion.span>
+                  <span className="mobile-player-artist">
+                    {player.currentTrack.artist || sourceLabel(player.currentTrack.provider)}
+                  </span>
+                </span>
+              </button>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Anterior"
+                onClick={player.previous}
+              >
+                <Icon name="previous" size={20} />
+              </button>
+              <button
+                className="play-button mobile-play"
+                type="button"
+                aria-label={player.isPlaying ? 'Pausar' : 'Reproducir'}
+                disabled={player.isLoading}
+                onClick={player.togglePlay}
+              >
+                <Icon name={player.isPlaying ? 'pause' : 'play'} size={20} />
+              </button>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Siguiente"
+                onClick={player.next}
+              >
+                <Icon name="next" size={20} />
+              </button>
+            </div>
+          )}
+
+          {notice && (
+            <div className="notice" role="status">
+              <span>{notice}</span>
+              <button
+                className="icon-button compact"
+                type="button"
+                aria-label="Cerrar aviso"
+                onClick={() => setNotice(null)}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
+
+          <PlaylistNameDialog
+            open={nameDialog !== null}
+            mode={nameDialog?.mode ?? 'create'}
+            initialName={nameDialog?.playlist?.name ?? ''}
+            onClose={() => setNameDialog(null)}
+            onSubmit={nameDialog?.mode === 'rename' ? renamePlaylist : createPlaylist}
+          />
+          <AuthDialog
+            open={authDialogMode !== null}
+            mode={authDialogMode ?? 'login'}
+            onClose={() => setAuthDialogMode(null)}
+            onModeChange={setAuthDialogMode}
+            onSubmit={submitAuth}
+          />
+          <AddTrackDialog
+            open={addTrackOpen}
+            playlist={activePlaylist}
+            onClose={() => setAddTrackOpen(false)}
+            onAdd={addTrack}
+            onAddLocalFiles={addLocalFiles}
+          />
+        </div>
+      </LayoutGroup>
+    </MotionConfig>
   );
 }
 

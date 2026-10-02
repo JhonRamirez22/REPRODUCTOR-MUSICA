@@ -18,6 +18,7 @@ export type IconName =
   | 'edit'
   | 'menu'
   | 'music'
+  | 'grip'
   | 'refresh'
   | 'chevron';
 
@@ -177,6 +178,18 @@ export function Icon({ name, size = 20, className }: IconProps) {
           <path d="M9 18V5l12-2v13" />
           <circle cx="6" cy="18" r="3" />
           <circle cx="18" cy="16" r="3" />
+        </>
+      );
+      break;
+    case 'grip':
+      shape = (
+        <>
+          <circle cx="9" cy="6" r="1" />
+          <circle cx="15" cy="6" r="1" />
+          <circle cx="9" cy="12" r="1" />
+          <circle cx="15" cy="12" r="1" />
+          <circle cx="9" cy="18" r="1" />
+          <circle cx="15" cy="18" r="1" />
         </>
       );
       break;

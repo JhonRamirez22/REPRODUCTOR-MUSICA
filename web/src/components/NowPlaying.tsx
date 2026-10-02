@@ -1,7 +1,9 @@
-import type { RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import type { Playlist } from '@reproductor/shared';
 import type { PlayerState } from '../player/use-player.js';
 import type { PlaybackTrack } from '../player/local-track.js';
+import { dominantAccent } from '../design/accent-color.js';
 import { PlayerControls } from './PlayerControls.js';
 import { Icon } from './Icon.js';
 import { LocalFilesButton } from './LocalFilesButton.js';
@@ -38,6 +40,40 @@ export function NowPlaying({
   mobileCollapseButtonRef,
 }: NowPlayingProps) {
   const track = player.currentTrack;
+  const shouldReduceMotion = useReducedMotion();
+  const previousTrackId = useRef<string | null>(null);
+  const [direction, setDirection] = useState(1);
+  const [accent, setAccent] = useState('#c7a876');
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--accent', accent);
+    return () => document.documentElement.style.setProperty('--accent', '#c7a876');
+  }, [accent]);
+
+  useEffect(() => {
+    const previousId = previousTrackId.current;
+    if (track && previousId && previousId !== track.id) {
+      const previousIndex = tracks.findIndex((item) => item.id === previousId);
+      const nextIndex = tracks.findIndex((item) => item.id === track.id);
+      if (previousIndex >= 0 && nextIndex >= 0) setDirection(nextIndex < previousIndex ? -1 : 1);
+    }
+    previousTrackId.current = track?.id ?? null;
+  }, [track?.id, tracks]);
+
+  useEffect(() => {
+    let active = true;
+    setAccent('#c7a876');
+    if (!track?.thumbnailUrl)
+      return () => {
+        active = false;
+      };
+    void dominantAccent(track.thumbnailUrl).then((value) => {
+      if (active && value) setAccent(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [track?.thumbnailUrl]);
 
   return (
     <main className={`now-playing${mobileExpanded ? ' mobile-player-expanded' : ''}`} id="inicio">
@@ -121,9 +157,63 @@ export function NowPlaying({
         </section>
       ) : track ? (
         <>
-          <section className="track-stage" aria-label="Pista actual">
-            {track.provider === 'youtube' ? (
-              <>
+          <section
+            className={`track-stage${track.provider === 'youtube' ? ' youtube-stage' : ''}`}
+            aria-label="Pista actual"
+          >
+            <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+              <motion.div
+                key={track.id}
+                className="cover-motion"
+                custom={direction}
+                initial={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: direction * 20, scale: 0.96, filter: 'blur(8px)' }
+                }
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scale: player.isPlaying ? 1 : 0.94,
+                  filter: 'blur(0px)',
+                }}
+                exit={
+                  shouldReduceMotion
+                    ? { opacity: 0 }
+                    : { opacity: 0, x: direction * -20, scale: 0.96, filter: 'blur(8px)' }
+                }
+                transition={
+                  shouldReduceMotion
+                    ? { duration: 0.15 }
+                    : { type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }
+                }
+                layoutId="current-cover"
+              >
+                {track.thumbnailUrl ? (
+                  <img
+                    className="audio-artwork"
+                    src={track.thumbnailUrl}
+                    alt={`Carátula de ${track.title}`}
+                    width={420}
+                    height={420}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <div
+                    className="audio-artwork artwork-placeholder"
+                    role="img"
+                    aria-label="Esta pista no tiene carátula"
+                  >
+                    <span className="artwork-disc">
+                      <i />
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+            {track.provider === 'youtube' && (
+              <div className="youtube-embed-frame">
                 <div
                   className="youtube-frame"
                   ref={playerContainerRef}
@@ -135,49 +225,46 @@ export function NowPlaying({
                     <span>Presiona reproducir para cargar el video</span>
                   </div>
                 )}
-              </>
-            ) : track.thumbnailUrl ? (
-              <img
-                className="audio-artwork"
-                src={track.thumbnailUrl}
-                alt={`Carátula de ${track.title}`}
-              />
-            ) : (
-              <div
-                className="audio-artwork artwork-placeholder"
-                role="img"
-                aria-label="Esta pista no tiene carátula"
-              >
-                <span className="artwork-disc">
-                  <i />
-                </span>
               </div>
             )}
           </section>
 
           <section className="track-information" aria-live="polite" aria-atomic="true">
-            <div className="track-copy">
-              <h2 className={player.unavailableIds.has(track.id) ? 'is-unavailable' : ''}>
-                {track.title}
-              </h2>
-              <p>{track.artist || providerLabel(track.provider)}</p>
-              {track.provider === 'jamendo' && (
-                <div className="track-attribution">
-                  <a
-                    href={track.attributionUrl ?? track.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Abrir ficha en Jamendo
-                  </a>
-                  {track.licenseUrl && (
-                    <a href={track.licenseUrl} target="_blank" rel="noreferrer">
-                      Licencia Creative Commons
+            <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+              <motion.div
+                className="track-copy"
+                key={track.id}
+                custom={direction}
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * -12 }}
+                transition={shouldReduceMotion ? { duration: 0.15 } : undefined}
+              >
+                <motion.h2
+                  className={player.unavailableIds.has(track.id) ? 'is-unavailable' : ''}
+                  layoutId="current-track-title"
+                >
+                  {track.title}
+                </motion.h2>
+                <p>{track.artist || providerLabel(track.provider)}</p>
+                {track.provider === 'jamendo' && (
+                  <div className="track-attribution">
+                    <a
+                      href={track.attributionUrl ?? track.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir ficha en Jamendo
                     </a>
-                  )}
-                </div>
-              )}
-            </div>
+                    {track.licenseUrl && (
+                      <a href={track.licenseUrl} target="_blank" rel="noreferrer">
+                        Licencia Creative Commons
+                      </a>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
             {track.provider === 'jamendo' ? (
               <a
                 className="source-chip"
@@ -202,8 +289,9 @@ export function NowPlaying({
             disabled={!track || player.unavailableIds.has(track.id)}
           />
           <p className="keyboard-shortcuts">
-            Atajos: <kbd>Espacio</kbd> reproduce o pausa · <kbd>←</kbd>/<kbd>→</kbd> cambia de pista
-            · <kbd>M</kbd> silencia
+            Atajos: <kbd>Espacio</kbd> reproduce o pausa · <kbd>←</kbd>/<kbd>→</kbd> busca 5 s ·
+            <kbd>Mayús</kbd> + flechas cambia de pista · <kbd>↑</kbd>/<kbd>↓</kbd> ajusta volumen ·{' '}
+            <kbd>M</kbd> silencia
           </p>
         </>
       ) : null}

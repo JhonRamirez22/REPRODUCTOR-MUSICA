@@ -1,8 +1,15 @@
 # Decisiones
 
+- La interfaz editorial sigue el brief de rediseño aprobado por el usuario, que pide Tailwind core y Framer Motion aunque el `AGENTS.md` original los excluye; Tailwind solo aporta utilidades prefijadas, sin preflight, y Framer Motion resuelve transiciones y cola táctil accesible. No se añade demo musical porque el `AGENTS.md` prohíbe canciones y playlists quemadas.
+- DM Sans e Instrument Serif se distribuyen como WOFF2 autoalojados con sus avisos OFL: conservan la tipografía explícita del brief sin bloquear el arranque si Google Fonts no responde ni enviar solicitudes de fuente durante la visita.
+- El cambio de cuenta cancela lecturas anteriores, vacía la vista y elimina archivos locales en memoria antes de cargar la biblioteca del nuevo propietario; así se evita mostrar playlists cruzadas o prometer la sincronización de audio local.
+- Las cargas de la lista de playlists también usan una versión independiente para descartar respuestas tardías; el botón de reintento vuelve a comprobar la sesión y limpia la vista si cambió el propietario.
+- El registro empieza con foco en correo tras abrir el diálogo nativo, ya que `autoFocus` no enfoca el campo si el `<dialog>` aún está cerrado al montar.
+- El registro y el login bloquean el cierre del diálogo mientras esperan respuesta; cancelar durante esa espera podría completar la sesión después de que la persona crea que salió del flujo.
+- Impeccable marca Instrument Serif como fuente sobreutilizada; se conserva e ignora solo ese valor porque el brief aprobado lo exige para el título de pista. El detector también encontró una animación de altura en el progreso; se cambió por `transform: scaleY()` para no recalcular layout.
 - Se crea el proyecto en `outputs/reproductor-estructuras-datos` porque el workspace de esta tarea es el directorio de salida autorizado; el directorio indicado contiene el brief, no código inicial.
 - La interfaz parte del fallback de tokens de la sección 9.4 de `AGENTS.md`: `uipro` y su generador `search.py` no están instalados en el entorno; no añado esa herramienta como dependencia de producción.
-- La dirección de diseño conserva el dark-first cálido, un acento coral, tipografía de sistema y jerarquía por espacio indicados en `AGENTS.md`; no se carga tipografía remota para evitar una dependencia de red de la interfaz.
+- El brief de rediseño autorizado establece una sala editorial casi negra con acento dorado, DM Sans e Instrument Serif autoalojadas; se conserva el contenido dinámico y se evita una dependencia de fuentes remotas.
 - `jsdom` queda como dependencia de desarrollo junto a Testing Library porque los componentes React requieren un DOM para verificar sus interacciones; no forma parte de la imagen de producción.
 - `TEST_DATABASE_URL` queda comentada en `.env.example` para que `npm run check` no intente conectarse ni borrar datos hasta que se active el perfil temporal de pruebas de PostgreSQL.
 - `VITE_API_PROXY_TARGET` permite apuntar Vite a otro puerto de Fastify si el 3000 ya está ocupado en desarrollo.

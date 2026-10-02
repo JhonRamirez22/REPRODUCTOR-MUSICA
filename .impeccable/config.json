@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "createdAt": "2026-10-02T06:43:57.674Z",
+        "reason": "El brief aprobado pide Instrument Serif como tipografía display del título de pista."
+      }
+    ]
+  }
+}

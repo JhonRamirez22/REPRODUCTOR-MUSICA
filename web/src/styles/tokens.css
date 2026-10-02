@@ -1,19 +1,44 @@
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/dm-sans-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-serif-regular-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-serif-italic-latin.woff2') format('woff2');
+}
+
 :root {
   color-scheme: dark;
-  --bg: #121110;
-  --surface: #1b1917;
-  --surface-2: #25221f;
-  --surface-3: #302b27;
-  --player-bg: #0e0d0c;
-  --scrim: rgb(18 17 16 / 68%);
-  --border: #332f2b;
-  --text: #f3efe9;
-  --text-muted: #a39b91;
-  --accent: #ff6b3d;
-  --on-accent: #121110;
+  --bg: #0b0b0c;
+  --surface: #121214;
+  --surface-2: #19191b;
+  --surface-3: #242426;
+  --player-bg: #09090a;
+  --scrim: rgb(3 3 4 / 72%);
+  --border: rgb(242 240 235 / 9%);
+  --text: #f2f0eb;
+  --text-muted: rgb(242 240 235 / 58%);
+  --text-tertiary: rgb(242 240 235 / 34%);
+  --accent: #c7a876;
+  --on-accent: #0b0b0c;
   --danger: #ff5d5d;
   --success: #80c79a;
-  --focus: #ffb59d;
+  --focus: #e8d1a7;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -26,7 +51,9 @@
   --space-8: 32px;
   --space-10: 40px;
   --space-12: 48px;
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans:
+    'DM Sans', 'Inter Tight', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Instrument Serif', Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -41,29 +68,10 @@
   --border: #d3c8bd;
   --text: #24201c;
   --text-muted: #655c54;
+  --text-tertiary: #84796f;
   --accent: #b93f1b;
   --on-accent: #fffdfa;
   --danger: #b22626;
   --success: #21663a;
   --focus: #8c2c14;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-    --bg: #f4f0ea;
-    --surface: #fffdfa;
-    --surface-2: #ece6de;
-    --surface-3: #e2d9cf;
-    --player-bg: #0e0d0c;
-    --scrim: rgb(18 17 16 / 68%);
-    --border: #d3c8bd;
-    --text: #24201c;
-    --text-muted: #655c54;
-    --accent: #b93f1b;
-    --on-accent: #fffdfa;
-    --danger: #b22626;
-    --success: #21663a;
-    --focus: #8c2c14;
-  }
 }

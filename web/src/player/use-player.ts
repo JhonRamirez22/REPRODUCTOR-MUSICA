@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useMotionValue, type MotionValue } from 'framer-motion';
 import { DoublyLinkedList, PlaybackCursor, type RepeatMode } from '@reproductor/shared';
 import { AudioEngine } from './audio-engine.js';
 import { isPlaybackTime, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
 import type { PlaybackTrack } from './local-track.js';
+import {
+  readLastTrackId,
+  readPlaybackPreferences,
+  writeLastTrackId,
+  writePlaybackPreferences,
+} from './player-preferences.js';
 import { YouTubeEngine } from './youtube-engine.js';
 
 const NO_TRACKS: PlaybackTrack[] = [];
@@ -24,6 +31,7 @@ export interface PlayerState {
   isLoading: boolean;
   isPrepared: boolean;
   currentTime: number;
+  currentTimeMotion: MotionValue<number>;
   duration: number;
   volume: number;
   isMuted: boolean;
@@ -49,21 +57,27 @@ export function usePlayer(
   containerRef?: RefObject<HTMLElement | null>,
   engineFactory: PlayerEngineFactory = defaultEngineFactory,
 ): PlayerState {
+  const [savedPreferences] = useState(readPlaybackPreferences);
+  const [savedTrackId] = useState(readLastTrackId);
   const [currentTrack, setCurrentTrack] = useState<PlaybackTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPrepared, setPrepared] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const currentTimeMotion = useMotionValue(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(0.8);
-  const [isMuted, setMuted] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
-  const [isShuffled, setShuffled] = useState(false);
+  const [volume, setVolumeState] = useState(savedPreferences.volume);
+  const [isMuted, setMuted] = useState(savedPreferences.volume === 0);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>(savedPreferences.repeatMode);
+  const [isShuffled, setShuffled] = useState(savedPreferences.isShuffled);
   const [unavailableIds, setUnavailableIds] = useState<ReadonlySet<string>>(() => new Set());
   const [message, setMessage] = useState<string | null>(null);
   const cursorRef = useRef<PlaybackCursor<PlaybackTrack> | null>(null);
   const tracksRef = useRef<readonly PlaybackTrack[]>(tracks);
   const currentTrackRef = useRef<PlaybackTrack | null>(null);
+  const currentTimeRef = useRef(0);
+  const timeUpdateFrameRef = useRef<number | null>(null);
+  const savedTrackIdRef = useRef(savedTrackId);
   const pendingYoutubeTrackRef = useRef<PlaybackTrack | null>(null);
   const engineRef = useRef<{
     provider: PlaybackTrack['provider'];
@@ -72,8 +86,10 @@ export function usePlayer(
   const loadedTrackIdRef = useRef<string | null>(null);
   const playRequestRef = useRef(0);
   const playingRef = useRef(false);
-  const mutedVolumeRef = useRef(0.8);
-  const volumeRef = useRef(0.8);
+  const mutedVolumeRef = useRef(savedPreferences.volume || 0.8);
+  const volumeRef = useRef(savedPreferences.volume);
+  const repeatModeRef = useRef(savedPreferences.repeatMode);
+  const shuffledRef = useRef(savedPreferences.isShuffled);
   const unavailableRef = useRef<ReadonlySet<string>>(new Set());
   const errorHandledIdRef = useRef<string | null>(null);
   const playTrackRef = useRef<(track: PlaybackTrack) => Promise<void>>(async () => undefined);
@@ -83,6 +99,15 @@ export function usePlayer(
   );
   const previousRef = useRef<() => void>(() => undefined);
   const handleErrorRef = useRef<() => void>(() => undefined);
+
+  const updatePlaybackTime = useCallback(
+    (seconds: number) => {
+      currentTimeRef.current = seconds;
+      setCurrentTime(seconds);
+      currentTimeMotion.set(seconds);
+    },
+    [currentTimeMotion],
+  );
 
   const setPlaying = useCallback((value: boolean) => {
     playingRef.current = value;
@@ -104,8 +129,16 @@ export function usePlayer(
       engine.setVolume(isMuted ? 0 : volumeRef.current);
       engine.on('timeupdate', (payload) => {
         if (!isPlaybackTime(payload)) return;
-        setCurrentTime(payload.currentTime);
-        setDuration(payload.duration);
+        currentTimeRef.current = payload.currentTime;
+        setDuration((previous) => (previous === payload.duration ? previous : payload.duration));
+        if (timeUpdateFrameRef.current === null) {
+          if (typeof requestAnimationFrame === 'function') {
+            timeUpdateFrameRef.current = requestAnimationFrame(() => {
+              timeUpdateFrameRef.current = null;
+              currentTimeMotion.set(currentTimeRef.current);
+            });
+          } else currentTimeMotion.set(payload.currentTime);
+        }
       });
       engine.on('ended', () => {
         if (cursorRef.current?.repeatMode === 'one') {
@@ -131,7 +164,7 @@ export function usePlayer(
       engineRef.current = { provider: track.provider, engine };
       return engine;
     },
-    [containerRef, destroyEngine, engineFactory, isMuted, setPlaying],
+    [containerRef, currentTimeMotion, destroyEngine, engineFactory, isMuted, setPlaying],
   );
 
   const playTrack = useCallback(
@@ -140,7 +173,7 @@ export function usePlayer(
       pendingYoutubeTrackRef.current = null;
       currentTrackRef.current = track;
       setCurrentTrack(track);
-      setCurrentTime(0);
+      updatePlaybackTime(0);
       setDuration(track.durationSec ?? 0);
       setMessage(null);
       errorHandledIdRef.current = null;
@@ -188,7 +221,7 @@ export function usePlayer(
         }
       }
     },
-    [containerRef, getEngine, setPlaying],
+    [containerRef, getEngine, setPlaying, updatePlaybackTime],
   );
   playTrackRef.current = playTrack;
 
@@ -238,7 +271,7 @@ export function usePlayer(
       }
       currentTrackRef.current = candidate.value;
       setCurrentTrack(candidate.value);
-      setCurrentTime(0);
+      updatePlaybackTime(0);
       if (autoplay) {
         void playTrackRef.current(candidate.value);
       } else {
@@ -246,7 +279,7 @@ export function usePlayer(
         setPlaying(false);
       }
     },
-    [setPlaying],
+    [setPlaying, updatePlaybackTime],
   );
   advanceRef.current = advance;
 
@@ -275,6 +308,8 @@ export function usePlayer(
     const previousTrackId = currentTrackRef.current?.id ?? previousCurrent?.id ?? null;
     const ids = new Set(tracks.map((track) => track.id));
     let selected = tracks.find((track) => track.id === previousTrackId) ?? null;
+    if (!selected && savedTrackIdRef.current)
+      selected = tracks.find((track) => track.id === savedTrackIdRef.current) ?? null;
     let shouldContinue = false;
 
     if (!selected && previousCurrent) {
@@ -295,6 +330,7 @@ export function usePlayer(
     cursorRef.current = cursor;
     tracksRef.current = tracks;
     currentTrackRef.current = selected ?? tracks[0] ?? null;
+    if (currentTrackRef.current) savedTrackIdRef.current = currentTrackRef.current.id;
     setCurrentTrack(currentTrackRef.current);
     const nextUnavailable = new Set([...unavailableRef.current].filter((id) => ids.has(id)));
     unavailableRef.current = nextUnavailable;
@@ -303,7 +339,7 @@ export function usePlayer(
     if (!tracks.length) {
       playRequestRef.current += 1;
       destroyEngine();
-      setCurrentTime(0);
+      updatePlaybackTime(0);
       setDuration(0);
       setPrepared(false);
       setPlaying(false);
@@ -317,15 +353,23 @@ export function usePlayer(
       setPlaying(false);
       setPrepared(false);
     }
-  }, [tracks, destroyEngine, isShuffled, repeatMode, setPlaying]);
+  }, [tracks, destroyEngine, isShuffled, repeatMode, setPlaying, updatePlaybackTime]);
 
   useEffect(
     () => () => {
       engineRef.current?.engine.destroy();
       engineRef.current = null;
+      if (timeUpdateFrameRef.current !== null && typeof cancelAnimationFrame === 'function')
+        cancelAnimationFrame(timeUpdateFrameRef.current);
     },
     [],
   );
+
+  useEffect(() => {
+    if (!currentTrack) return;
+    savedTrackIdRef.current = currentTrack.id;
+    writeLastTrackId(currentTrack.id);
+  }, [currentTrack?.id]);
 
   useEffect(() => {
     if (currentTrack?.provider !== 'youtube') return;
@@ -386,28 +430,31 @@ export function usePlayer(
   }, [pause]);
 
   const previous = useCallback(() => {
-    if (currentTime > 3) {
+    if (currentTimeRef.current > 3) {
       engineRef.current?.engine.seek(0);
-      setCurrentTime(0);
+      updatePlaybackTime(0);
       return;
     }
     const cursor = cursorRef.current;
     // Manual previous bypasses repeat-one in advance; keep the queue head playing in place.
     if (cursor?.current && !cursor.current.prev && cursor.repeatMode !== 'all') {
       engineRef.current?.engine.seek(0);
-      setCurrentTime(0);
+      updatePlaybackTime(0);
       return;
     }
     advanceRef.current('previous', true);
-  }, [currentTime]);
+  }, [updatePlaybackTime]);
   previousRef.current = previous;
 
   const next = useCallback(() => advanceRef.current('next', true), []);
 
-  const seek = useCallback((seconds: number) => {
-    engineRef.current?.engine.seek(seconds);
-    setCurrentTime(seconds);
-  }, []);
+  const seek = useCallback(
+    (seconds: number) => {
+      engineRef.current?.engine.seek(seconds);
+      updatePlaybackTime(seconds);
+    },
+    [updatePlaybackTime],
+  );
 
   const setVolume = useCallback((nextVolume: number) => {
     const safeVolume = Math.max(0, Math.min(1, nextVolume));
@@ -416,6 +463,11 @@ export function usePlayer(
     mutedVolumeRef.current = safeVolume || mutedVolumeRef.current;
     setMuted(safeVolume === 0);
     engineRef.current?.engine.setVolume(safeVolume);
+    writePlaybackPreferences({
+      volume: safeVolume,
+      repeatMode: repeatModeRef.current,
+      isShuffled: shuffledRef.current,
+    });
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -430,13 +482,25 @@ export function usePlayer(
     const nextMode: RepeatMode =
       repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
     cursorRef.current?.setRepeat(nextMode);
+    repeatModeRef.current = nextMode;
     setRepeatMode(nextMode);
+    writePlaybackPreferences({
+      volume: volumeRef.current,
+      repeatMode: nextMode,
+      isShuffled: shuffledRef.current,
+    });
   }, [repeatMode]);
 
   const toggleShuffle = useCallback(() => {
     const nextValue = !isShuffled;
     cursorRef.current?.setShuffle(nextValue);
+    shuffledRef.current = nextValue;
     setShuffled(nextValue);
+    writePlaybackPreferences({
+      volume: volumeRef.current,
+      repeatMode: repeatModeRef.current,
+      isShuffled: nextValue,
+    });
   }, [isShuffled]);
 
   const selectTrack = useCallback((trackId: string) => {
@@ -462,6 +526,7 @@ export function usePlayer(
     isLoading,
     isPrepared,
     currentTime,
+    currentTimeMotion,
     duration,
     volume,
     isMuted,
