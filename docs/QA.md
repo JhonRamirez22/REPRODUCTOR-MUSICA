@@ -20,7 +20,8 @@ Actualizada el 2 de octubre de 2026 para el rediseño editorial y la revisión d
 ## Producción
 
 - El despliegue existente usa Vercel para la interfaz, ECS Express Mode para la API y Aurora PostgreSQL para persistencia. `vercel.json` reescribe `/api/*` al origen HTTPS y evita cachear respuestas privadas.
-- La última comprobación previa a la publicación devolvió `200 {"status":"ok"}` en `/api/health`. Después de publicar se debe comprobar de nuevo el build activo y la misma ruta.
+- El commit `caad017` quedó `Ready` en Vercel para `main`; el dominio de presentación sirve los nuevos bundles de la interfaz y animación.
+- Después de esa publicación, `/api/health` respondió `200 {"status":"ok"}` y el proxy público devolvió `Cache-Control: no-store`.
 - No se probó el registro creando una identidad de prueba en la base real, para no dejar datos de prueba permanentes. La comprobación de persistencia entre dispositivos está cubierta por la prueba de servicio con dos cookies de sesión.
 
 ## Catálogo y privacidad
