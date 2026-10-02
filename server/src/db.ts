@@ -1,12 +1,32 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Signer } from '@aws-sdk/rds-signer';
 import { Pool } from 'pg';
 import type { AppConfig } from './config.js';
 
 export function createPool(config: AppConfig): Pool {
+  const connection = config.DATABASE_URL
+    ? { connectionString: config.DATABASE_URL }
+    : (() => {
+        const signer = new Signer({
+          hostname: config.PGHOST!,
+          port: config.PGPORT,
+          username: config.PGUSER!,
+          region: config.AWS_REGION!,
+        });
+        return {
+          host: config.PGHOST!,
+          port: config.PGPORT,
+          database: config.PGDATABASE!,
+          user: config.PGUSER!,
+          password: () => signer.getAuthToken(),
+          ssl: { rejectUnauthorized: true },
+        };
+      })();
+
   return new Pool({
-    connectionString: config.DATABASE_URL,
+    ...connection,
     max: process.env.VERCEL === '1' ? 1 : 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,

@@ -13,3 +13,4 @@
 - El entrypoint Fastify de Vercel se publica como una única función de framework; por eso `npm run build:vercel` genera un módulo ESM con frontend y migraciones incrustados, evitando una regla `functions` que solo admite funciones `api/`.
 - `JAMENDO_CLIENT_ID` y la ruta de streaming antigua se conservan únicamente para compatibilidad de reproducción con registros creados por la versión anterior; el buscador ya no usa Jamendo.
 - YouTube prohíbe la reproducción en segundo plano: el iframe se pausa al ocultarse la página y Media Session solo se registra para fuentes de audio directo, de modo que sus controles no reanuden YouTube en segundo plano.
+- El usuario eligió Aurora PostgreSQL y AWS. Para conectar el contenedor sin contraseñas persistentes se usa autenticación IAM de Aurora, tokens temporales del SDK oficial `@aws-sdk/rds-signer` y TLS con el bundle global de CA de RDS; `DATABASE_URL` se mantiene para desarrollo local y otros proveedores.

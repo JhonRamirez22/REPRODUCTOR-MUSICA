@@ -4,7 +4,12 @@ const EnvironmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.string().url().optional(),
+    PGHOST: z.string().trim().min(1).optional(),
+    PGPORT: z.coerce.number().int().min(1).max(65535).default(5432),
+    PGDATABASE: z.string().trim().min(1).optional(),
+    PGUSER: z.string().trim().min(1).optional(),
+    AWS_REGION: z.string().trim().min(1).optional(),
     COOKIE_SECRET: z.string().min(32),
     YTMUSIC_PYTHON: z.string().trim().min(1).default('python3'),
     YTMUSIC_API_URL: z
@@ -27,6 +32,25 @@ const EnvironmentSchema = z
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   })
   .superRefine((config, context) => {
+    const iamDatabaseValues = [config.PGHOST, config.PGDATABASE, config.PGUSER];
+    const hasIamDatabaseValue = iamDatabaseValues.some((value) => value !== undefined);
+    const hasCompleteIamDatabaseValues =
+      iamDatabaseValues.every((value) => value !== undefined) && config.AWS_REGION !== undefined;
+
+    if (config.DATABASE_URL && hasIamDatabaseValue) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Configure DATABASE_URL or the complete AWS IAM database settings, not both.',
+        path: ['DATABASE_URL'],
+      });
+    }
+    if (!config.DATABASE_URL && !hasCompleteIamDatabaseValues) {
+      context.addIssue({
+        code: 'custom',
+        message: 'DATABASE_URL or PGHOST, PGDATABASE, PGUSER, and AWS_REGION are required.',
+        path: ['DATABASE_URL'],
+      });
+    }
     if (Boolean(config.YTMUSIC_API_URL) !== Boolean(config.YTMUSIC_API_TOKEN)) {
       context.addIssue({
         code: 'custom',

@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
-RUN apk add --no-cache python3 py3-pip
+RUN apk add --no-cache python3 py3-pip ca-certificates curl
+RUN curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /etc/ssl/certs/aws-rds-global-bundle.pem
 RUN python3 -m venv /opt/ytmusic-venv
 COPY server/requirements.txt /tmp/server-requirements.txt
 RUN /opt/ytmusic-venv/bin/pip install --no-cache-dir -r /tmp/server-requirements.txt
@@ -18,8 +19,9 @@ RUN npm prune --omit=dev --no-audit --no-fund
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV PATH="/opt/ytmusic-venv/bin:${PATH}"
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/aws-rds-global-bundle.pem
 WORKDIR /app
-RUN apk add --no-cache python3
+RUN apk add --no-cache python3 ca-certificates
 
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
@@ -32,6 +34,7 @@ COPY --from=build --chown=node:node /app/server/python ./server/python
 COPY --from=build --chown=node:node /app/ytmusic-function/catalog.py ./ytmusic-function/catalog.py
 COPY --from=build --chown=node:node /app/web/dist ./web/dist
 COPY --from=build --chown=node:node /opt/ytmusic-venv /opt/ytmusic-venv
+COPY --from=build --chown=root:root /etc/ssl/certs/aws-rds-global-bundle.pem /etc/ssl/certs/aws-rds-global-bundle.pem
 
 USER node
 EXPOSE 3000

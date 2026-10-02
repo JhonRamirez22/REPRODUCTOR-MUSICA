@@ -7,6 +7,42 @@ const requiredEnvironment = {
 };
 
 describe('loadConfig', () => {
+  it('requires a complete database configuration', () => {
+    expect(() => loadConfig({ COOKIE_SECRET: requiredEnvironment.COOKIE_SECRET })).toThrow(
+      'DATABASE_URL or PGHOST, PGDATABASE, PGUSER, and AWS_REGION are required.',
+    );
+  });
+
+  it('accepts Aurora IAM authentication settings without a stored password', () => {
+    expect(
+      loadConfig({
+        COOKIE_SECRET: requiredEnvironment.COOKIE_SECRET,
+        PGHOST: 'cluster.example.rds.amazonaws.com',
+        PGDATABASE: 'reproductor',
+        PGUSER: 'postgres',
+        AWS_REGION: 'us-east-1',
+      }),
+    ).toMatchObject({
+      PGHOST: 'cluster.example.rds.amazonaws.com',
+      PGPORT: 5432,
+      PGDATABASE: 'reproductor',
+      PGUSER: 'postgres',
+      AWS_REGION: 'us-east-1',
+    });
+  });
+
+  it('rejects configuring both a connection URL and IAM database settings', () => {
+    expect(() =>
+      loadConfig({
+        ...requiredEnvironment,
+        PGHOST: 'cluster.example.rds.amazonaws.com',
+        PGDATABASE: 'reproductor',
+        PGUSER: 'postgres',
+        AWS_REGION: 'us-east-1',
+      }),
+    ).toThrow('Configure DATABASE_URL or the complete AWS IAM database settings, not both.');
+  });
+
   it('requires the remote catalog URL and token as a pair', () => {
     expect(() =>
       loadConfig({ ...requiredEnvironment, YTMUSIC_API_URL: 'https://catalog.example.com/api' }),
