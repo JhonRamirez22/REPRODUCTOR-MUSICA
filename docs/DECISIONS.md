@@ -31,3 +31,4 @@
 - `@vitest/coverage-v8` se añade como herramienta de desarrollo alineada con Vitest para medir la cobertura que exige la auditoría; no entra en dependencias de producción.
 - Fastify confía en un solo salto de proxy porque ECS Express recibe tráfico desde su balanceador; `trustProxy: true` aceptaba direcciones `X-Forwarded-For` falsificables para el rate limit.
 - El adaptador Python usa `unittest` de la biblioteca estándar; `npm run check` también compila y ejecuta esos tests para que la puerta de calidad cubra ambos lenguajes sin añadir otro framework.
+- YouTube se pausa al ocultar la pestaña por su prohibición de reproducción en segundo plano; se informa el motivo y se mantienen disponibles los controles de navegación si la pista no está disponible. El audio directo y local no se pausa por ese evento.

@@ -286,7 +286,8 @@ export function NowPlaying({
           )}
           <PlayerControls
             player={player}
-            disabled={!track || player.unavailableIds.has(track.id)}
+            disabled={!track}
+            playDisabled={Boolean(track && player.unavailableIds.has(track.id))}
           />
           <p className="keyboard-shortcuts">
             Atajos: <kbd>Espacio</kbd> reproduce o pausa · <kbd>←</kbd>/<kbd>→</kbd> busca 5 s ·

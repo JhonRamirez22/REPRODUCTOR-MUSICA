@@ -13,6 +13,7 @@ import { Icon } from './Icon.js';
 interface PlayerControlsProps {
   player: PlayerState;
   disabled?: boolean;
+  playDisabled?: boolean;
 }
 
 export function formatTime(seconds: number): string {
@@ -24,7 +25,11 @@ export function formatTime(seconds: number): string {
   return `${minutes}:${remainder}`;
 }
 
-export function PlayerControls({ player, disabled = false }: PlayerControlsProps) {
+export function PlayerControls({
+  player,
+  disabled = false,
+  playDisabled = false,
+}: PlayerControlsProps) {
   const shouldReduceMotion = useReducedMotion();
   const canHover =
     typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches === true;
@@ -70,7 +75,7 @@ export function PlayerControls({ player, disabled = false }: PlayerControlsProps
           className="play-button"
           type="button"
           aria-label={player.isPlaying ? 'Pausar' : 'Reproducir'}
-          disabled={disabled || player.isLoading}
+          disabled={disabled || playDisabled || player.isLoading}
           whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
           whileHover={canHover && !shouldReduceMotion ? { scale: 1.04 } : undefined}
           onClick={player.togglePlay}

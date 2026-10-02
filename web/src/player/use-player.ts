@@ -380,6 +380,9 @@ export function usePlayer(
       engineRef.current?.engine.pause();
       setPlaying(false);
       setIsLoading(false);
+      setMessage(
+        'YouTube se pausó al ocultar esta pestaña. La reproducción en segundo plano no está permitida para este reproductor.',
+      );
     };
     document.addEventListener('visibilitychange', pauseHiddenPlayback);
     return () => document.removeEventListener('visibilitychange', pauseHiddenPlayback);

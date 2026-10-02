@@ -269,6 +269,7 @@ describe('usePlayer', () => {
 
       expect(engine.pauseCount).toBe(1);
       expect(result.current.isPlaying).toBe(false);
+      expect(result.current.message).toMatch(/YouTube.*segundo plano/i);
     } finally {
       unmount();
       if (previousVisibility)
@@ -278,6 +279,37 @@ describe('usePlayer', () => {
       if (previousMediaSession)
         Object.defineProperty(navigator, 'mediaSession', previousMediaSession);
       else Reflect.deleteProperty(navigator, 'mediaSession');
+    }
+  });
+
+  it('keeps direct audio playing when the document becomes hidden', async () => {
+    const previousVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    const track = makeTrack('00000000-0000-4000-8000-000000000025', 'Audio directo');
+    const tracks = [track];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result, unmount } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    try {
+      act(() => result.current.togglePlay());
+      await waitFor(() => expect(engine.playCount).toBe(1));
+
+      act(() => {
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          value: 'hidden',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(engine.pauseCount).toBe(0);
+      expect(result.current.isPlaying).toBe(true);
+    } finally {
+      unmount();
+      if (previousVisibility)
+        Object.defineProperty(document, 'visibilityState', previousVisibility);
+      else Reflect.deleteProperty(document, 'visibilityState');
     }
   });
 
