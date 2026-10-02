@@ -61,7 +61,15 @@ afterEach(() => {
 describe('AddTrackDialog', () => {
   it('searches the catalog, selects a track, and adds it at the chosen position', async () => {
     const onAdd = vi.fn(async () => undefined);
-    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={onAdd} />);
+    render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={() => undefined}
+        onAdd={onAdd}
+        onAddLocalFiles={() => ({ added: 0, rejected: 0 })}
+      />,
+    );
 
     const queryInput = await screen.findByLabelText('Canción o artista');
     fireEvent.change(queryInput, { target: { value: 'Fankel' } });
@@ -91,7 +99,15 @@ describe('AddTrackDialog', () => {
       .mockReturnValueOnce(olderSearch.promise)
       .mockResolvedValueOnce({ tracks: [newerTrack] });
     const onAdd = vi.fn(async () => undefined);
-    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={onAdd} />);
+    render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={() => undefined}
+        onAdd={onAdd}
+        onAddLocalFiles={() => ({ added: 0, rejected: 0 })}
+      />,
+    );
 
     const queryInput = await screen.findByLabelText('Canción o artista');
     fireEvent.change(queryInput, { target: { value: 'anterior' } });
@@ -109,7 +125,15 @@ describe('AddTrackDialog', () => {
 
   it('explains that the catalog is unavailable without exposing setup instructions', async () => {
     vi.mocked(api.catalogStatus).mockResolvedValue({ enabled: false });
-    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={vi.fn()} />);
+    render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={() => undefined}
+        onAdd={vi.fn()}
+        onAddLocalFiles={() => ({ added: 0, rejected: 0 })}
+      />,
+    );
 
     expect(await screen.findByText('No hay conexión con el catálogo')).toBeTruthy();
     expect(screen.getByText(/avisa a quien administra esta app/i)).toBeTruthy();
@@ -120,7 +144,15 @@ describe('AddTrackDialog', () => {
     vi.mocked(api.catalogStatus)
       .mockResolvedValueOnce({ enabled: false })
       .mockResolvedValueOnce({ enabled: true });
-    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={vi.fn()} />);
+    render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={() => undefined}
+        onAdd={vi.fn()}
+        onAddLocalFiles={() => ({ added: 0, rejected: 0 })}
+      />,
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Volver a comprobar' }));
     expect(await screen.findByLabelText('Canción o artista')).toBeTruthy();
@@ -129,7 +161,15 @@ describe('AddTrackDialog', () => {
 
   it('rejects positions outside the current playlist range', async () => {
     const onAdd = vi.fn(async () => undefined);
-    render(<AddTrackDialog open playlist={playlist} onClose={() => undefined} onAdd={onAdd} />);
+    render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={() => undefined}
+        onAdd={onAdd}
+        onAddLocalFiles={() => ({ added: 0, rejected: 0 })}
+      />,
+    );
     const queryInput = await screen.findByLabelText('Canción o artista');
     fireEvent.change(queryInput, { target: { value: 'Fankel' } });
     fireEvent.click(screen.getByRole('button', { name: 'Buscar' }));
@@ -142,5 +182,59 @@ describe('AddTrackDialog', () => {
       'Elige una posición entre 1 y 3.',
     );
     expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('selects local audio without a playlist or catalog request', () => {
+    const onClose = vi.fn();
+    const onAddLocalFiles = vi.fn(() => ({ added: 1, rejected: 0 }));
+    const file = new File(['audio'], 'Escucha.mp3', { type: 'audio/mpeg' });
+    const { container } = render(
+      <AddTrackDialog
+        open
+        playlist={null}
+        onClose={onClose}
+        onAdd={vi.fn()}
+        onAddLocalFiles={onAddLocalFiles}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Elegir archivos locales de audio' })).toBeTruthy();
+    expect(
+      screen.getByText('Para guardar canciones de YouTube Music, primero crea una playlist.'),
+    ).toBeTruthy();
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(fileInput?.multiple).toBe(true);
+    fireEvent.change(fileInput!, { target: { files: [file] } });
+
+    expect(onAddLocalFiles).toHaveBeenCalledWith([file]);
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(api.catalogStatus).not.toHaveBeenCalled();
+  });
+
+  it('offers local files as music for the selected playlist during this session', () => {
+    const onClose = vi.fn();
+    const onAddLocalFiles = vi.fn(() => ({ added: 1, rejected: 0 }));
+    const file = new File(['audio'], 'Escucha.mp3', { type: 'audio/mpeg' });
+    const { container } = render(
+      <AddTrackDialog
+        open
+        playlist={playlist}
+        onClose={onClose}
+        onAdd={vi.fn()}
+        onAddLocalFiles={onAddLocalFiles}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Se agrega al final de «Lista personal» durante esta sesión/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Elegir archivos locales de audio' }).textContent,
+    ).toContain('Agregar archivos');
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    fireEvent.change(fileInput!, { target: { files: [file] } });
+
+    expect(onAddLocalFiles).toHaveBeenCalledWith([file]);
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

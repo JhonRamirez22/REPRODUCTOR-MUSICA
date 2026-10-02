@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AddTrackRequest, Playlist, PlaylistSummary, Track } from '@reproductor/shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DoublyLinkedList,
+  type AddTrackRequest,
+  type Playlist,
+  type PlaylistSummary,
+  type Track,
+} from '@reproductor/shared';
 import { AddTrackDialog } from './components/AddTrackDialog.js';
 import { Icon } from './components/Icon.js';
 import { NowPlaying } from './components/NowPlaying.js';
@@ -7,12 +13,20 @@ import { PlaylistNameDialog } from './components/PlaylistNameDialog.js';
 import { PlaylistSidebar } from './components/PlaylistSidebar.js';
 import { QueuePanel } from './components/QueuePanel.js';
 import { api, ApiError } from './api/client.js';
+import { createLocalTracks, type LocalTrack, type PlaybackTrack } from './player/local-track.js';
 import { usePlayer } from './player/use-player.js';
 import './styles/tokens.css';
 import './styles/base.css';
 
 type NameDialogMode = 'create' | 'rename';
 const EMPTY_TRACKS: readonly Track[] = [];
+const EMPTY_LOCAL_TRACKS: LocalTrack[] = [];
+const EMPTY_LOCAL_TRACK_MAP: Record<string, LocalTrack[]> = {};
+
+interface LocalFileResult {
+  added: number;
+  rejected: number;
+}
 
 function readLastPlaylistId(): string | null {
   try {
@@ -50,6 +64,10 @@ function App() {
   const [playlistsError, setPlaylistsError] = useState<string | null>(null);
   const [playlistError, setPlaylistError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [localTracksByPlaylist, setLocalTracksByPlaylist] =
+    useState<Record<string, LocalTrack[]>>(EMPTY_LOCAL_TRACK_MAP);
+  const [standaloneLocalTracks, setStandaloneLocalTracks] =
+    useState<LocalTrack[]>(EMPTY_LOCAL_TRACKS);
   const [nameDialog, setNameDialog] = useState<{
     mode: NameDialogMode;
     playlist?: PlaylistSummary;
@@ -67,7 +85,13 @@ function App() {
   const mobileExpandButtonRef = useRef<HTMLButtonElement>(null);
   const mobileCollapseButtonRef = useRef<HTMLButtonElement>(null);
   const playlistLoadVersion = useRef(0);
-  const tracks: readonly Track[] = activePlaylist?.tracks ?? EMPTY_TRACKS;
+  const activeLocalTracks = activePlaylist
+    ? (localTracksByPlaylist[activePlaylist.id] ?? EMPTY_LOCAL_TRACKS)
+    : standaloneLocalTracks;
+  const tracks: readonly PlaybackTrack[] = useMemo(
+    () => [...(activePlaylist?.tracks ?? EMPTY_TRACKS), ...activeLocalTracks],
+    [activePlaylist?.tracks, activeLocalTracks],
+  );
   const player = usePlayer(tracks, playerContainerRef);
   const playerRef = useRef(player);
   const mobilePlayerExpandedRef = useRef(mobilePlayerExpanded);
@@ -167,6 +191,12 @@ function App() {
     if (!accepted) return;
     try {
       await api.deletePlaylist(playlist.id);
+      setLocalTracksByPlaylist((current) => {
+        if (!current[playlist.id]) return current;
+        const next = { ...current };
+        delete next[playlist.id];
+        return next;
+      });
       const remaining = playlists.filter((item) => item.id !== playlist.id);
       setPlaylists(remaining);
       if (activePlaylist?.id === playlist.id) {
@@ -205,7 +235,57 @@ function App() {
     }
   }
 
-  async function removeTrack(track: Track): Promise<void> {
+  function addLocalFiles(files: File[]): LocalFileResult {
+    const playlistId = activePlaylist?.id ?? null;
+    const { tracks: selectedTracks, rejectedCount } = createLocalTracks(files, playlistId);
+    if (selectedTracks.length === 0) {
+      setNotice(
+        'No se agregaron archivos. Elige audio compatible, como MP3, WAV, M4A, FLAC u OGG.',
+      );
+      return { added: 0, rejected: rejectedCount };
+    }
+
+    if (playlistId) {
+      setLocalTracksByPlaylist((current) => ({
+        ...current,
+        [playlistId]: [...(current[playlistId] ?? EMPTY_LOCAL_TRACKS), ...selectedTracks],
+      }));
+    } else {
+      setStandaloneLocalTracks((current) => [...current, ...selectedTracks]);
+    }
+
+    const countLabel =
+      selectedTracks.length === 1 ? '1 archivo local' : `${selectedTracks.length} archivos locales`;
+    const rejectedMessage = rejectedCount
+      ? ` Se omitieron ${rejectedCount} archivos que no son audio compatible.`
+      : '';
+    const destination = activePlaylist
+      ? `al final de «${activePlaylist.name}» durante esta sesión`
+      : 'a la cola local';
+    setNotice(
+      `${countLabel} agregado${selectedTracks.length === 1 ? '' : 's'} ${destination}. No se sube ni se conserva al recargar.${rejectedMessage}`,
+    );
+    return { added: selectedTracks.length, rejected: rejectedCount };
+  }
+
+  async function removeTrack(track: PlaybackTrack): Promise<void> {
+    if (track.provider === 'local') {
+      const playlistId = track.playlistId;
+      if (playlistId) {
+        setLocalTracksByPlaylist((current) => {
+          const remaining = (current[playlistId] ?? []).filter((item) => item.id !== track.id);
+          const next = { ...current };
+          if (remaining.length) next[playlistId] = remaining;
+          else delete next[playlistId];
+          return next;
+        });
+        setNotice('Archivo local quitado de la playlist de esta sesión.');
+      } else {
+        setStandaloneLocalTracks((current) => current.filter((item) => item.id !== track.id));
+        setNotice('Archivo local quitado de la cola.');
+      }
+      return;
+    }
     if (!activePlaylist) return;
     try {
       const updated = await api.removeTrack(activePlaylist.id, track.id, activePlaylist.revision);
@@ -217,7 +297,27 @@ function App() {
     }
   }
 
-  async function moveTrack(track: Track, toIndex: number): Promise<void> {
+  async function moveTrack(track: PlaybackTrack, toIndex: number): Promise<void> {
+    if (track.provider === 'local') {
+      const currentIndex = tracks.findIndex((item) => item.id === track.id);
+      const localTracks = track.playlistId
+        ? (localTracksByPlaylist[track.playlistId] ?? EMPTY_LOCAL_TRACKS)
+        : standaloneLocalTracks;
+      const localIndex = localTracks.findIndex((item) => item.id === track.id);
+      const targetIndex = localIndex + Math.sign(toIndex - currentIndex);
+      if (localIndex < 0 || targetIndex < 0 || targetIndex >= localTracks.length) return;
+
+      const list = DoublyLinkedList.from(localTracks.map((item) => ({ id: item.id, value: item })));
+      list.moveTo(track.id, targetIndex);
+      const reorderedTracks = list.toArray();
+      if (track.playlistId) {
+        const playlistId = track.playlistId;
+        setLocalTracksByPlaylist((current) => ({ ...current, [playlistId]: reorderedTracks }));
+      } else {
+        setStandaloneLocalTracks(reorderedTracks);
+      }
+      return;
+    }
     if (!activePlaylist) return;
     try {
       const updated = await api.moveTrack(
@@ -360,13 +460,16 @@ function App() {
           loading={playlistLoading}
           error={playlistError}
           onAddTrack={() => setAddTrackOpen(true)}
+          onAddLocalFiles={addLocalFiles}
           onCreatePlaylist={() => setNameDialog({ mode: 'create' })}
           onRetry={() => activePlaylist && void loadPlaylist(activePlaylist.id)}
           onCollapseMobilePlayer={() => setMobilePlayerExpanded(false)}
           mobileCollapseButtonRef={mobileCollapseButtonRef}
         />
         <QueuePanel
-          playlistName={activePlaylist?.name ?? null}
+          playlistName={
+            activePlaylist?.name ?? (standaloneLocalTracks.length > 0 ? 'Archivos locales' : null)
+          }
           hasPlaylists={playlists.length > 0}
           tracks={tracks}
           currentTrackId={player.currentTrack?.id ?? null}
@@ -377,6 +480,7 @@ function App() {
           onAdd={() => {
             setAddTrackOpen(true);
           }}
+          onAddLocalFiles={addLocalFiles}
           onCreatePlaylist={() => {
             setQueueOpen(false);
             setNameDialog({ mode: 'create' });
@@ -388,7 +492,7 @@ function App() {
       </div>
 
       <footer className="app-footer">
-        <span>Catálogo de YouTube Music con reproducción oficial de YouTube.</span>
+        <span>Reproduce YouTube Music y archivos locales desde este dispositivo.</span>
         <a href="/privacy.html">Privacidad</a>
       </footer>
 
@@ -403,12 +507,7 @@ function App() {
           >
             <span className="mobile-player-title">{player.currentTrack.title}</span>
             <span className="mobile-player-artist">
-              {player.currentTrack.artist ||
-                (player.currentTrack.provider === 'youtube'
-                  ? 'YouTube Music'
-                  : player.currentTrack.provider === 'jamendo'
-                    ? 'Jamendo'
-                    : 'Audio directo')}
+              {player.currentTrack.artist || sourceLabel(player.currentTrack.provider)}
             </span>
           </button>
           <button
@@ -465,9 +564,17 @@ function App() {
         playlist={activePlaylist}
         onClose={() => setAddTrackOpen(false)}
         onAdd={addTrack}
+        onAddLocalFiles={addLocalFiles}
       />
     </div>
   );
 }
 
 export default App;
+
+function sourceLabel(provider: PlaybackTrack['provider']): string {
+  if (provider === 'youtube') return 'YouTube Music';
+  if (provider === 'jamendo') return 'Jamendo';
+  if (provider === 'local') return 'Archivo local';
+  return 'Audio directo';
+}

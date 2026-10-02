@@ -1,23 +1,25 @@
 import { useEffect, useRef } from 'react';
-import type { Track } from '@reproductor/shared';
+import { isLocalTrack, type PlaybackTrack } from '../player/local-track.js';
 import { Icon } from './Icon.js';
 import { formatTime } from './PlayerControls.js';
 import { focusMobilePanel, trapMobilePanelFocus } from './mobile-panel.js';
+import { LocalFilesButton } from './LocalFilesButton.js';
 
 interface QueuePanelProps {
   playlistName: string | null;
   hasPlaylists: boolean;
-  tracks: readonly Track[];
+  tracks: readonly PlaybackTrack[];
   currentTrackId: string | null;
   unavailableIds: ReadonlySet<string>;
   open: boolean;
   mobileViewport: boolean;
   onClose: () => void;
   onAdd: () => void;
+  onAddLocalFiles: (files: File[]) => void;
   onCreatePlaylist: () => void;
   onPlay: (id: string) => void;
-  onMove: (track: Track, toIndex: number) => void;
-  onRemove: (track: Track) => void;
+  onMove: (track: PlaybackTrack, toIndex: number) => void;
+  onRemove: (track: PlaybackTrack) => void;
 }
 
 export function QueuePanel({
@@ -30,6 +32,7 @@ export function QueuePanel({
   mobileViewport,
   onClose,
   onAdd,
+  onAddLocalFiles,
   onCreatePlaylist,
   onPlay,
   onMove,
@@ -37,6 +40,8 @@ export function QueuePanel({
 }: QueuePanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const localTracks = tracks.filter(isLocalTrack);
+  const playlistTracks = tracks.filter((track) => !isLocalTrack(track));
 
   useEffect(() => {
     if (open && mobileViewport && panelRef.current) focusMobilePanel(panelRef.current);
@@ -90,6 +95,7 @@ export function QueuePanel({
               </button>
             </>
           )}
+          <LocalFilesButton onSelectFiles={onAddLocalFiles} />
         </div>
       ) : tracks.length === 0 ? (
         <div className="queue-empty">
@@ -97,12 +103,16 @@ export function QueuePanel({
           <button className="text-button" type="button" onClick={onAdd}>
             Agregar una pista
           </button>
+          <LocalFilesButton onSelectFiles={onAddLocalFiles} />
         </div>
       ) : (
         <ol className="queue-list" aria-label={`Pistas de ${playlistName}`}>
           {tracks.map((track, position) => {
             const current = track.id === currentTrackId;
             const unavailable = unavailableIds.has(track.id);
+            const local = isLocalTrack(track);
+            const groupTracks = local ? localTracks : playlistTracks;
+            const groupPosition = groupTracks.findIndex((item) => item.id === track.id);
             return (
               <li
                 className={`queue-item${current ? ' is-current' : ''}${unavailable ? ' is-unavailable' : ''}`}
@@ -146,7 +156,7 @@ export function QueuePanel({
                     className="icon-button compact"
                     type="button"
                     aria-label={`Subir ${track.title}`}
-                    disabled={position === 0}
+                    disabled={groupPosition === 0}
                     onClick={() => onMove(track, position - 1)}
                   >
                     <Icon name="up" size={16} />
@@ -155,7 +165,7 @@ export function QueuePanel({
                     className="icon-button compact"
                     type="button"
                     aria-label={`Bajar ${track.title}`}
-                    disabled={position === tracks.length - 1}
+                    disabled={groupPosition === groupTracks.length - 1}
                     onClick={() => onMove(track, position + 1)}
                   >
                     <Icon name="down" size={16} />
@@ -176,16 +186,20 @@ export function QueuePanel({
       )}
 
       {playlistName && tracks.length > 0 && (
-        <button className="queue-add-button" type="button" onClick={onAdd}>
-          <Icon name="plus" size={17} /> Agregar una pista
-        </button>
+        <div className="queue-add-actions">
+          <button className="queue-add-button" type="button" onClick={onAdd}>
+            <Icon name="plus" size={17} /> Agregar una pista
+          </button>
+          <LocalFilesButton onSelectFiles={onAddLocalFiles} />
+        </div>
       )}
     </aside>
   );
 }
 
-function providerLabel(provider: Track['provider']): string {
+function providerLabel(provider: PlaybackTrack['provider']): string {
   if (provider === 'youtube') return 'YouTube Music';
   if (provider === 'jamendo') return 'Jamendo';
+  if (provider === 'local') return 'Archivo local';
   return 'Audio directo';
 }

@@ -52,6 +52,7 @@ describe('Fastify API', () => {
     expect(home.statusCode).toBe(200);
     expect(home.body).toBe(index);
     expect(home.headers['cache-control']).toBe('no-cache');
+    expect(home.headers['content-security-policy']).toContain('media-src https: blob:');
 
     const asset = await app.inject({ method: 'GET', url: '/assets/app.js' });
     expect(asset.statusCode).toBe(200);

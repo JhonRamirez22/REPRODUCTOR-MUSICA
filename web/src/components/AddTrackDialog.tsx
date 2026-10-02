@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { AddTrackRequest, CatalogTrack, Playlist } from '@reproductor/shared';
 import { api } from '../api/client.js';
 import { Icon } from './Icon.js';
+import { LocalFilesButton } from './LocalFilesButton.js';
+
+interface LocalFileResult {
+  added: number;
+  rejected: number;
+}
 
 interface AddTrackDialogProps {
   open: boolean;
@@ -10,9 +16,16 @@ interface AddTrackDialogProps {
   onAdd: (
     input: Omit<AddTrackRequest, 'expectedRevision'> & { expectedRevision: number },
   ) => Promise<void>;
+  onAddLocalFiles: (files: File[]) => LocalFileResult;
 }
 
-export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialogProps) {
+export function AddTrackDialog({
+  open,
+  playlist,
+  onClose,
+  onAdd,
+  onAddLocalFiles,
+}: AddTrackDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [catalogEnabled, setCatalogEnabled] = useState<boolean | null>(null);
   const [query, setQuery] = useState('');
@@ -66,7 +79,11 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     setSaving(false);
     setError(null);
     setPositionError(null);
-    void refreshCatalogStatus();
+    if (playlist) void refreshCatalogStatus();
+    else {
+      setCatalogEnabled(false);
+      setLoadingStatus(false);
+    }
   }, [open, playlist?.id, playlist?.trackCount, refreshCatalogStatus]);
 
   function close(): void {
@@ -148,6 +165,15 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
     }
   }
 
+  function addLocalFiles(files: File[]): void {
+    const result = onAddLocalFiles(files);
+    if (result.added === 0) {
+      setError('No se añadieron archivos. Elige audio compatible, como MP3, WAV, M4A, FLAC u OGG.');
+      return;
+    }
+    close();
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -161,15 +187,36 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
       <div>
         <div className="dialog-header">
           <div>
-            <h2 id="add-track-title">Buscar música</h2>
-            <p className="dialog-intro">Busca canciones en YouTube Music.</p>
+            <h2 id="add-track-title">Agregar música</h2>
+            <p className="dialog-intro">Busca en YouTube Music o elige audio de tu dispositivo.</p>
           </div>
           <button className="icon-button" type="button" onClick={close} aria-label="Cerrar">
             <Icon name="close" />
           </button>
         </div>
 
-        {loadingStatus ? (
+        <section className="local-audio-choice" aria-labelledby="local-audio-title">
+          <div>
+            <h3 id="local-audio-title">Desde este dispositivo</h3>
+            <p id="local-files-help">
+              {playlist
+                ? `Se agrega al final de «${playlist.name}» durante esta sesión. No se sube y se pierde al recargar.`
+                : 'Reproduce audio en una cola temporal. No se sube y desaparece al recargar.'}
+            </p>
+          </div>
+          <LocalFilesButton
+            className="button button-quiet local-files-action"
+            describedBy="local-files-help"
+            label={playlist ? 'Agregar archivos' : 'Reproducir archivos'}
+            onSelectFiles={addLocalFiles}
+          />
+        </section>
+
+        {!playlist ? (
+          <p className="catalog-status local-only-status" role="status">
+            Para guardar canciones de YouTube Music, primero crea una playlist.
+          </p>
+        ) : loadingStatus ? (
           <p className="catalog-status" role="status">
             Conectando con el catálogo…
           </p>
@@ -275,46 +322,48 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
           </div>
         )}
 
-        <fieldset className="placement-fieldset">
-          <legend>Posición en la playlist</legend>
-          <label className="select-row">
-            <span>Agregar al</span>
-            <select
-              className="select-input"
-              value={placement}
-              onChange={(event) => setPlacement(event.target.value as 'head' | 'tail' | 'index')}
-            >
-              <option value="head">Inicio</option>
-              <option value="tail">Final</option>
-              <option value="index">Elegir posición</option>
-            </select>
-          </label>
-          {placement === 'index' && (
+        {playlist && catalogEnabled && (
+          <fieldset className="placement-fieldset">
+            <legend>Posición en la playlist</legend>
             <label className="select-row">
-              <span>Posición (1–{(playlist?.trackCount ?? 0) + 1})</span>
-              <input
-                className="number-input"
-                type="number"
-                min={1}
-                max={(playlist?.trackCount ?? 0) + 1}
-                step={1}
-                value={index}
-                aria-invalid={positionError !== null}
-                aria-describedby={positionError ? 'position-error' : undefined}
-                onChange={(event) => {
-                  setIndex(Number(event.target.value));
-                  setPositionError(null);
-                }}
-                required
-              />
+              <span>Agregar al</span>
+              <select
+                className="select-input"
+                value={placement}
+                onChange={(event) => setPlacement(event.target.value as 'head' | 'tail' | 'index')}
+              >
+                <option value="head">Inicio</option>
+                <option value="tail">Final</option>
+                <option value="index">Elegir posición</option>
+              </select>
             </label>
-          )}
-          {positionError && (
-            <p className="field-error" id="position-error" role="alert">
-              {positionError}
-            </p>
-          )}
-        </fieldset>
+            {placement === 'index' && (
+              <label className="select-row">
+                <span>Posición (1–{(playlist?.trackCount ?? 0) + 1})</span>
+                <input
+                  className="number-input"
+                  type="number"
+                  min={1}
+                  max={(playlist?.trackCount ?? 0) + 1}
+                  step={1}
+                  value={index}
+                  aria-invalid={positionError !== null}
+                  aria-describedby={positionError ? 'position-error' : undefined}
+                  onChange={(event) => {
+                    setIndex(Number(event.target.value));
+                    setPositionError(null);
+                  }}
+                  required
+                />
+              </label>
+            )}
+            {positionError && (
+              <p className="field-error" id="position-error" role="alert">
+                {positionError}
+              </p>
+            )}
+          </fieldset>
+        )}
 
         {error && (
           <p className="field-error" role="alert">
@@ -325,14 +374,16 @@ export function AddTrackDialog({ open, playlist, onClose, onAdd }: AddTrackDialo
           <button className="button button-quiet" type="button" onClick={close}>
             Cancelar
           </button>
-          <button
-            className="button button-primary"
-            type="button"
-            disabled={!catalogEnabled || !selected || saving}
-            onClick={() => void submit()}
-          >
-            {saving ? 'Agregando…' : 'Agregar a la playlist'}
-          </button>
+          {playlist && (
+            <button
+              className="button button-primary"
+              type="button"
+              disabled={!catalogEnabled || !selected || saving}
+              onClick={() => void submit()}
+            >
+              {saving ? 'Agregando…' : 'Agregar a la playlist'}
+            </button>
+          )}
         </div>
       </div>
     </dialog>

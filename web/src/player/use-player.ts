@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { DoublyLinkedList, PlaybackCursor, type RepeatMode, type Track } from '@reproductor/shared';
+import { DoublyLinkedList, PlaybackCursor, type RepeatMode } from '@reproductor/shared';
 import { AudioEngine } from './audio-engine.js';
 import { isPlaybackTime, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
+import type { PlaybackTrack } from './local-track.js';
 import { YouTubeEngine } from './youtube-engine.js';
 
-const NO_TRACKS: Track[] = [];
+const NO_TRACKS: PlaybackTrack[] = [];
 
 function defaultEngineFactory(
-  provider: Track['provider'],
+  provider: PlaybackTrack['provider'],
   container: HTMLElement | null,
 ): PlayerEngine {
   if (provider === 'youtube') {
@@ -18,7 +19,7 @@ function defaultEngineFactory(
 }
 
 export interface PlayerState {
-  currentTrack: Track | null;
+  currentTrack: PlaybackTrack | null;
   isPlaying: boolean;
   isLoading: boolean;
   isPrepared: boolean;
@@ -44,11 +45,11 @@ export interface PlayerState {
 }
 
 export function usePlayer(
-  tracks: readonly Track[] = NO_TRACKS,
+  tracks: readonly PlaybackTrack[] = NO_TRACKS,
   containerRef?: RefObject<HTMLElement | null>,
   engineFactory: PlayerEngineFactory = defaultEngineFactory,
 ): PlayerState {
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<PlaybackTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPrepared, setPrepared] = useState(false);
@@ -60,10 +61,13 @@ export function usePlayer(
   const [isShuffled, setShuffled] = useState(false);
   const [unavailableIds, setUnavailableIds] = useState<ReadonlySet<string>>(() => new Set());
   const [message, setMessage] = useState<string | null>(null);
-  const cursorRef = useRef<PlaybackCursor<Track> | null>(null);
-  const tracksRef = useRef<readonly Track[]>(tracks);
-  const currentTrackRef = useRef<Track | null>(null);
-  const engineRef = useRef<{ provider: Track['provider']; engine: PlayerEngine } | null>(null);
+  const cursorRef = useRef<PlaybackCursor<PlaybackTrack> | null>(null);
+  const tracksRef = useRef<readonly PlaybackTrack[]>(tracks);
+  const currentTrackRef = useRef<PlaybackTrack | null>(null);
+  const engineRef = useRef<{
+    provider: PlaybackTrack['provider'];
+    engine: PlayerEngine;
+  } | null>(null);
   const loadedTrackIdRef = useRef<string | null>(null);
   const playRequestRef = useRef(0);
   const playingRef = useRef(false);
@@ -71,7 +75,7 @@ export function usePlayer(
   const volumeRef = useRef(0.8);
   const unavailableRef = useRef<ReadonlySet<string>>(new Set());
   const errorHandledIdRef = useRef<string | null>(null);
-  const playTrackRef = useRef<(track: Track) => Promise<void>>(async () => undefined);
+  const playTrackRef = useRef<(track: PlaybackTrack) => Promise<void>>(async () => undefined);
   const playCurrentRef = useRef<() => void>(() => undefined);
   const advanceRef = useRef<(direction: 'next' | 'previous', autoplay: boolean) => void>(
     () => undefined,
@@ -92,7 +96,7 @@ export function usePlayer(
   }, []);
 
   const getEngine = useCallback(
-    (track: Track): PlayerEngine => {
+    (track: PlaybackTrack): PlayerEngine => {
       if (engineRef.current?.provider === track.provider) return engineRef.current.engine;
       destroyEngine();
       const engine = engineFactory(track.provider, containerRef?.current ?? null);
@@ -130,7 +134,7 @@ export function usePlayer(
   );
 
   const playTrack = useCallback(
-    async (track: Track): Promise<void> => {
+    async (track: PlaybackTrack): Promise<void> => {
       if (currentTrackRef.current?.id !== track.id) setPrepared(false);
       currentTrackRef.current = track;
       setCurrentTrack(track);
@@ -321,7 +325,7 @@ export function usePlayer(
   useEffect(() => {
     if (
       !currentTrack ||
-      currentTrack.provider !== 'audio' ||
+      currentTrack.provider === 'youtube' ||
       !('mediaSession' in navigator) ||
       typeof MediaMetadata === 'undefined'
     )

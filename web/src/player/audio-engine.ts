@@ -1,11 +1,12 @@
-import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine } from './engine.js';
+import type { PlaybackTrack } from './local-track.js';
 
 export class AudioEngine implements PlayerEngine {
   private readonly events = new EventEmitter();
   private readonly audio = new Audio();
   private loadTimeout: ReturnType<typeof setTimeout> | null = null;
   private cancelPendingLoad: (() => void) | null = null;
+  private localObjectUrl: string | null = null;
 
   constructor() {
     this.audio.preload = 'metadata';
@@ -17,14 +18,21 @@ export class AudioEngine implements PlayerEngine {
     this.audio.addEventListener('error', this.handleError);
   }
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlaybackTrack): Promise<void> {
     this.cancelPendingLoad?.();
     this.cancelPendingLoad = null;
-    this.audio.src =
-      track.provider === 'jamendo'
-        ? `/api/catalog/stream/${encodeURIComponent(track.sourceId)}`
-        : track.sourceUrl;
+    const previousObjectUrl = this.localObjectUrl;
+    this.localObjectUrl = null;
+    if (track.provider === 'local') {
+      this.localObjectUrl = URL.createObjectURL(track.file);
+      this.audio.src = this.localObjectUrl;
+    } else if (track.provider === 'jamendo') {
+      this.audio.src = `/api/catalog/stream/${encodeURIComponent(track.sourceId)}`;
+    } else {
+      this.audio.src = track.sourceUrl;
+    }
     this.audio.load();
+    if (previousObjectUrl) URL.revokeObjectURL(previousObjectUrl);
     if (this.audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
       this.emitReady();
       return;
@@ -81,6 +89,7 @@ export class AudioEngine implements PlayerEngine {
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
+    this.revokeLocalObjectUrl();
     this.audio.removeEventListener('loadedmetadata', this.handleReady);
     this.audio.removeEventListener('timeupdate', this.handleTimeUpdate);
     this.audio.removeEventListener('ended', this.handleEnded);
@@ -121,5 +130,11 @@ export class AudioEngine implements PlayerEngine {
   private clearLoadTimeout(): void {
     if (this.loadTimeout) clearTimeout(this.loadTimeout);
     this.loadTimeout = null;
+  }
+
+  private revokeLocalObjectUrl(): void {
+    if (!this.localObjectUrl) return;
+    URL.revokeObjectURL(this.localObjectUrl);
+    this.localObjectUrl = null;
   }
 }

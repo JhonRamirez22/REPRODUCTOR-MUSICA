@@ -1,5 +1,5 @@
-import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine } from './engine.js';
+import type { PlaybackTrack } from './local-track.js';
 
 interface YouTubePlayer {
   loadVideoById(videoId: string): void;
@@ -89,7 +89,8 @@ export class YouTubeEngine implements PlayerEngine {
     this.container.replaceChildren(this.host);
   }
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlaybackTrack): Promise<void> {
+    if (track.provider !== 'youtube') throw new Error('YouTube requiere una pista del catálogo.');
     if (this.destroyed) throw new DOMException('Player was destroyed.', 'AbortError');
     const api = await loadYouTubeApi();
     if (this.destroyed) throw new DOMException('Player was destroyed.', 'AbortError');

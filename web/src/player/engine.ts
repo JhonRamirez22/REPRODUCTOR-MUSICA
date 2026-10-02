@@ -1,10 +1,10 @@
-import type { Track } from '@reproductor/shared';
+import type { PlaybackTrack } from './local-track.js';
 
 export type PlayerEventName = 'ready' | 'ended' | 'error' | 'timeupdate' | 'statechange';
 export type PlayerEventHandler = (payload: unknown) => void;
 
 export interface PlayerEngine {
-  load(track: Track): Promise<void>;
+  load(track: PlaybackTrack): Promise<void>;
   play(): Promise<void>;
   pause(): void;
   seek(seconds: number): void;
@@ -14,7 +14,7 @@ export interface PlayerEngine {
 }
 
 export type PlayerEngineFactory = (
-  provider: Track['provider'],
+  provider: PlaybackTrack['provider'],
   container: HTMLElement | null,
 ) => PlayerEngine;
 

@@ -111,7 +111,7 @@ export async function buildApp({
           'https://yt3.googleusercontent.com',
           'https://yt3.ggpht.com',
         ],
-        mediaSrc: ['https:'],
+        mediaSrc: ['https:', 'blob:'],
         connectSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         fontSrc: ["'self'", 'data:'],

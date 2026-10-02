@@ -1,18 +1,21 @@
 import type { RefObject } from 'react';
-import type { Playlist, Track } from '@reproductor/shared';
+import type { Playlist } from '@reproductor/shared';
 import type { PlayerState } from '../player/use-player.js';
+import type { PlaybackTrack } from '../player/local-track.js';
 import { PlayerControls } from './PlayerControls.js';
 import { Icon } from './Icon.js';
+import { LocalFilesButton } from './LocalFilesButton.js';
 
 interface NowPlayingProps {
   playlist: Playlist | null;
-  tracks: readonly Track[];
+  tracks: readonly PlaybackTrack[];
   player: PlayerState;
   playerContainerRef: RefObject<HTMLDivElement | null>;
   mobileExpanded: boolean;
   loading: boolean;
   error: string | null;
   onAddTrack: () => void;
+  onAddLocalFiles: (files: File[]) => void;
   onCreatePlaylist: () => void;
   onRetry: () => void;
   onCollapseMobilePlayer: () => void;
@@ -28,6 +31,7 @@ export function NowPlaying({
   loading,
   error,
   onAddTrack,
+  onAddLocalFiles,
   onCreatePlaylist,
   onRetry,
   onCollapseMobilePlayer,
@@ -40,17 +44,23 @@ export function NowPlaying({
       <header className="content-heading">
         <div>
           <h1>En reproducción</h1>
-          <p>{playlist ? playlist.name : 'Tu biblioteca personal'}</p>
+          <p>
+            {playlist
+              ? playlist.name
+              : tracks.some((item) => item.provider === 'local')
+                ? 'Archivos locales'
+                : 'Tu biblioteca personal'}
+          </p>
         </div>
         <div className="content-heading-actions">
-          {playlist && tracks.length > 0 && (
+          {tracks.length > 0 && (
             <button
               className="button button-quiet add-track-top"
               type="button"
               onClick={onAddTrack}
             >
               <Icon name="plus" size={18} />
-              <span>Agregar pista</span>
+              <span>Agregar música</span>
             </button>
           )}
           {mobileExpanded && (
@@ -84,16 +94,19 @@ export function NowPlaying({
           <div className="skeleton-line skeleton-meta" />
           <div className="skeleton-controls" />
         </section>
-      ) : !playlist ? (
+      ) : !playlist && tracks.length === 0 ? (
         <section className="empty-state library-empty">
           <div className="empty-mark" aria-hidden="true">
             <Icon name="brand" size={34} />
           </div>
           <h2>Empieza con una playlist</h2>
-          <p>Crea una lista y busca canciones en YouTube Music.</p>
-          <button className="button button-primary" type="button" onClick={onCreatePlaylist}>
-            Crear playlist
-          </button>
+          <p>Crea una playlist para guardar música o reproduce archivos desde este dispositivo.</p>
+          <div className="empty-state-actions">
+            <button className="button button-primary" type="button" onClick={onCreatePlaylist}>
+              Crear playlist
+            </button>
+            <LocalFilesButton onSelectFiles={onAddLocalFiles} />
+          </div>
         </section>
       ) : tracks.length === 0 ? (
         <section className="empty-state track-empty">
@@ -198,8 +211,9 @@ export function NowPlaying({
   );
 }
 
-function providerLabel(provider: Track['provider']): string {
+function providerLabel(provider: PlaybackTrack['provider']): string {
   if (provider === 'youtube') return 'YouTube Music';
   if (provider === 'jamendo') return 'Jamendo';
+  if (provider === 'local') return 'Archivo local';
   return 'Audio directo';
 }

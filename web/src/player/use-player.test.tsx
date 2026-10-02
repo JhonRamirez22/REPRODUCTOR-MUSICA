@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
+import type { LocalTrack, PlaybackTrack } from './local-track.js';
 import { usePlayer } from './use-player.js';
 
 function makeTrack(id: string, title: string): Track {
@@ -25,13 +26,13 @@ function makeTrack(id: string, title: string): Track {
 
 class FakePlayerEngine implements PlayerEngine {
   readonly events = new EventEmitter();
-  loadedTrack: Track | null = null;
+  loadedTrack: PlaybackTrack | null = null;
   playCount = 0;
   pauseCount = 0;
   seekTo = -1;
   volume = 1;
 
-  async load(track: Track): Promise<void> {
+  async load(track: PlaybackTrack): Promise<void> {
     this.loadedTrack = track;
     this.events.emit('ready');
   }
@@ -62,6 +63,32 @@ class FakePlayerEngine implements PlayerEngine {
 }
 
 describe('usePlayer', () => {
+  it('plays local files as linked queue entries without a persisted track provider', async () => {
+    const first = makeTrack('00000000-0000-4000-8000-000000000030', 'Primera');
+    const localTrack: LocalTrack = {
+      id: '00000000-0000-4000-8000-000000000031',
+      title: 'Archivo del dispositivo',
+      artist: null,
+      durationSec: null,
+      thumbnailUrl: null,
+      provider: 'local',
+      playlistId: first.playlistId,
+      file: new File(['audio'], 'archivo.mp3', { type: 'audio/mpeg' }),
+    };
+    const tracks: PlaybackTrack[] = [first, localTrack];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    act(() => result.current.playTrack(first.id));
+    await waitFor(() => expect(engine.playCount).toBe(1));
+    act(() => engine.events.emit('ended'));
+
+    await waitFor(() => expect(result.current.currentTrack?.id).toBe(localTrack.id));
+    expect(engine.loadedTrack?.provider).toBe('local');
+    expect(engine.playCount).toBe(2);
+  });
+
   it('loads and advances tracks through the linked playback cursor', async () => {
     const first = makeTrack('00000000-0000-4000-8000-000000000002', 'Primera');
     const second = makeTrack('00000000-0000-4000-8000-000000000003', 'Segunda');

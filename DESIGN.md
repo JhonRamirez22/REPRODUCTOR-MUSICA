@@ -10,7 +10,7 @@ En escritorio, la pantalla se organiza en tres zonas estables: playlists a la iz
 
 ## Recorrido
 
-Crear una playlist, buscar una canción o artista en YouTube Music, elegir un resultado y su posición, y reproducirlo en el video visible. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa. El estado vacío invita a buscar una pista sin mostrar música de ejemplo.
+Crear una playlist, buscar una canción o artista en YouTube Music, elegir un resultado y su posición, y reproducirlo en el video visible. Desde el cuadro de alta también se pueden agregar archivos locales a la playlist activa durante la sesión; se indica que esos archivos no se suben y que habrá que elegirlos de nuevo tras recargar. Los controles de avanzar, retroceder, repetir, mezclar y reordenar quedan cerca de la pista activa.
 
 ## Interacción distintiva
 
@@ -36,4 +36,4 @@ Foco visible, etiquetas en botones de icono, controles nativos, objetivos tácti
 
 ## Límites
 
-No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No aceptar enlaces de música introducidos manualmente; las pistas se descubren mediante `ytmusicapi`. No ocultar el reproductor de YouTube ni extraer audio. No usar degradados decorativos, brillos, emojis, tarjetas anidadas ni controles solo por arrastre. El contenido de terceros se representa desde sus metadatos o miniaturas reales.
+No precargar canciones, playlists, URLs, IDs ni carátulas ficticias. No aceptar enlaces de música introducidos manualmente; las pistas se descubren mediante `ytmusicapi`. Los archivos elegidos por la persona se reproducen localmente sin subirlos. No ocultar el reproductor de YouTube ni extraer audio. No usar degradados decorativos, brillos, emojis, tarjetas anidadas ni controles solo por arrastre. El contenido de terceros se representa desde sus metadatos o miniaturas reales.

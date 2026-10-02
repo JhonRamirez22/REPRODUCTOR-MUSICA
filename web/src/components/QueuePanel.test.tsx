@@ -49,6 +49,7 @@ describe('QueuePanel', () => {
         mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
+        onAddLocalFiles={() => undefined}
         onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
@@ -77,6 +78,7 @@ describe('QueuePanel', () => {
         mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
+        onAddLocalFiles={() => undefined}
         onCreatePlaylist={() => undefined}
         onPlay={onPlay}
         onMove={onMove}
@@ -106,6 +108,7 @@ describe('QueuePanel', () => {
         mobileViewport
         onClose={onClose}
         onAdd={() => undefined}
+        onAddLocalFiles={() => undefined}
         onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
@@ -128,6 +131,7 @@ describe('QueuePanel', () => {
         mobileViewport
         onClose={onClose}
         onAdd={() => undefined}
+        onAddLocalFiles={() => undefined}
         onCreatePlaylist={() => undefined}
         onPlay={() => undefined}
         onMove={() => undefined}
@@ -136,11 +140,13 @@ describe('QueuePanel', () => {
     );
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar cola' });
-    const addButton = screen.getByRole('button', { name: 'Agregar una pista' });
+    const localFilesButton = screen.getByRole('button', {
+      name: 'Elegir archivos locales de audio',
+    });
     expect(document.activeElement).toBe(closeButton);
     fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(addButton);
-    fireEvent.keyDown(addButton, { key: 'Tab' });
+    expect(document.activeElement).toBe(localFilesButton);
+    fireEvent.keyDown(localFilesButton, { key: 'Tab' });
     expect(document.activeElement).toBe(closeButton);
     fireEvent.keyDown(closeButton, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
@@ -159,6 +165,7 @@ describe('QueuePanel', () => {
         mobileViewport={false}
         onClose={() => undefined}
         onAdd={() => undefined}
+        onAddLocalFiles={() => undefined}
         onCreatePlaylist={onCreatePlaylist}
         onPlay={() => undefined}
         onMove={() => undefined}

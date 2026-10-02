@@ -9,6 +9,7 @@ Aplicación web en español para crear playlists persistentes y buscar canciones
 - Crear, renombrar, cambiar y eliminar playlists con PostgreSQL e identidad anónima por cookie firmada.
 - Buscar por título o artista, elegir un resultado de YouTube Music y agregarlo al inicio, al final o en una posición elegida.
 - Verificar en el servidor que el video seleccionado pertenece a la búsqueda antes de guardarlo; la interfaz no ofrece entrada de enlaces.
+- Agregar varios archivos de audio al final de la playlist seleccionada durante la sesión y reproducirlos desde el dispositivo, sin subirlos. Hay que volver a elegirlos después de recargar.
 - Reproducir mediante el reproductor oficial de YouTube visible, con play/pausa, progreso, volumen, anterior, siguiente, repetición y shuffle. Media Session se usa en pistas de audio directo.
 - Reordenar con controles accesibles, eliminar pistas, permitir duplicados y saltar fuentes no disponibles.
 - Diseño adaptable, operación por teclado y estados de carga, error y vacío.
@@ -164,6 +165,7 @@ El contenedor ya incluye el intérprete y el paquete Python para búsquedas púb
 - La reproducción usa el YouTube IFrame Player API con el video visible (mínimo 200 × 200 px). La app pausa YouTube cuando la página queda oculta: las [políticas de YouTube para desarrolladores](https://developers.google.com/youtube/terms/developer-policies-guide) prohíben habilitar reproducción en segundo plano, descargar o separar audio. Media Session queda habilitada para fuentes de audio directo.
 - El servidor pasa el texto de búsqueda a `ytmusicapi`; el navegador carga la miniatura de YouTube y el reproductor oficial al reproducir. YouTube recibe las solicitudes y datos técnicos que requiere la reproducción.
 - Solo se guardan el `videoId`, título, artista, duración, miniatura, posición y referencia de origen. No se almacena audio.
+- Los archivos locales se agregan a la playlist seleccionada solo durante la sesión y permanecen en memoria del navegador. No se envían al servidor ni se guardan como pistas persistentes; vuelve a elegirlos después de recargar o cerrar la pestaña. La reproducción depende de los formatos admitidos por el navegador.
 - La cookie anónima identifica el navegador. Borrarla crea otro propietario y no permite recuperar playlists anteriores. No hay cuenta ni recuperación de identidad.
 - El servicio permanece en el mismo origen en producción: CORS está cerrado. Las cookies son `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
 - `/api/catalog/stream/:trackId` y `JAMENDO_CLIENT_ID` solo se conservan para reproducir pistas Jamendo creadas por una versión anterior; el buscador actual no usa Jamendo.

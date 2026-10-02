@@ -30,6 +30,7 @@ La persona busca una canción o artista en el catálogo, elige una pista, decide
 
 - La UI y la documentación del producto están en español; los identificadores del código están en inglés.
 - Las playlists y las pistas persisten en PostgreSQL. El audio no se sube ni se almacena.
+- Se pueden agregar archivos locales al final de la playlist activa durante la sesión; solo viven en memoria del navegador y hay que elegirlos de nuevo después de recargar.
 - Las pistas nuevas se buscan mediante la biblioteca no oficial `ytmusicapi` y se vuelven a verificar en el servidor antes de agregarlas; la interfaz no acepta enlaces de música introducidos manualmente.
 - La reproducción usa el reproductor de video oficial y visible de YouTube. La app no descarga ni extrae audio.
 - El orden se implementa con una lista doblemente enlazada, nunca con un array como estructura de datos.
@@ -46,4 +47,5 @@ La persona busca una canción o artista en el catálogo, elige una pista, decide
 - Permitir que cada persona encuentre canciones mediante la API pública de YouTube Music.
 - Mantener el audio en su proveedor de origen.
 - Conservar las playlists entre sesiones.
+- Hacer que escuchar archivos propios no requiera subirlos ni crear una cuenta.
 - Hacer accesibles con teclado y controles táctiles las acciones del reproductor y la cola.
