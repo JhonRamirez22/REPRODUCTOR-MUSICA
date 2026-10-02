@@ -2,7 +2,7 @@
 
 Aplicación web en español para crear playlists persistentes y buscar canciones en YouTube Music mediante [`ytmusicapi`](https://github.com/sigma67/ytmusicapi). Una lista doblemente enlazada implementada a mano conserva el orden en el servidor y dirige la navegación en el cliente. La app guarda referencias y metadatos; nunca sube ni extrae archivos de audio.
 
-**URL de producción: `<pendiente>`**. Docker, Render y Vercel están configurados; el primer despliegue requiere una cuenta, una base de datos y credenciales administradas por quien publica el proyecto.
+**URL de producción: `<pendiente de verificar>`**. El frontend se publica como sitio estático en Vercel; la API corre en ECS Express Mode y PostgreSQL en Aurora Express con IAM y TLS.
 
 ## Funciones
 
@@ -49,25 +49,30 @@ El servidor publica `web/dist`; las rutas que no comienzan por `/api/` devuelven
 
 ### Variables de entorno
 
-| Variable                  | Requerida | Predeterminado                 | Descripción                                                                                        |
-| ------------------------- | --------: | ------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                |        No | `development`                  | `development`, `test` o `production`.                                                              |
-| `PORT`                    |        No | `3000`                         | Puerto HTTP; Render inyecta el suyo.                                                               |
-| `DATABASE_URL`            |        Sí | Base `reproductor` del Compose | Cadena de conexión PostgreSQL.                                                                     |
-| `COOKIE_SECRET`           |        Sí | Marcador en `.env.example`     | Secreto de al menos 32 caracteres; en producción usa un valor aleatorio gestionado por el hosting. |
-| `YTMUSIC_PYTHON`          |        No | `python3`                      | Intérprete que tiene instalado `ytmusicapi`.                                                       |
-| `YTMUSIC_API_URL`         |        No | Sin configurar                 | URL HTTPS `/api` de la función Python de catálogo en Vercel.                                       |
-| `YTMUSIC_API_TOKEN`       |        No | Sin configurar                 | Secreto compartido de al menos 32 caracteres; requerido junto a `YTMUSIC_API_URL`.                 |
-| `MAX_PLAYLISTS_PER_OWNER` |        No | `50`                           | Tope por cookie de propietario.                                                                    |
-| `MAX_TRACKS_PER_PLAYLIST` |        No | `500`                          | Tope por playlist.                                                                                 |
-| `BODY_LIMIT_BYTES`        |        No | `16384`                        | Tamaño máximo del JSON, limitado a 16 KiB.                                                         |
-| `RATE_LIMIT_MAX`          |        No | `120`                          | Peticiones por minuto e IP; las búsquedas usan 20 por minuto.                                      |
-| `TEST_DATABASE_URL`       |        No | Sin configurar                 | Base aislada para pruebas PostgreSQL.                                                              |
-| `JAMENDO_CLIENT_ID`       |        No | Sin configurar                 | Solo permite reproducir registros de Jamendo guardados por una versión anterior.                   |
+| Variable                  |   Requerida | Predeterminado                 | Descripción                                                                            |
+| ------------------------- | ----------: | ------------------------------ | -------------------------------------------------------------------------------------- |
+| `NODE_ENV`                |          No | `development`                  | `development`, `test` o `production`.                                                  |
+| `PORT`                    |          No | `3000`                         | Puerto HTTP; Render inyecta el suyo.                                                   |
+| `DATABASE_URL`            | Condicional | Base `reproductor` del Compose | Cadena PostgreSQL local o de otros proveedores; no se combina con autenticación IAM.   |
+| `PGHOST`                  | Condicional | Sin configurar                 | Endpoint Aurora para autenticación IAM.                                                |
+| `PGPORT`                  |          No | `5432`                         | Puerto PostgreSQL del clúster.                                                         |
+| `PGDATABASE`              | Condicional | Sin configurar                 | Base PostgreSQL cuando se usa autenticación IAM.                                       |
+| `PGUSER`                  | Condicional | Sin configurar                 | Usuario PostgreSQL con `rds_iam` concedido.                                            |
+| `AWS_REGION`              | Condicional | Sin configurar                 | Región AWS para generar tokens de autenticación IAM.                                   |
+| `COOKIE_SECRET`           |          Sí | Marcador en `.env.example`     | Secreto de al menos 32 caracteres; en producción se inyecta desde AWS Secrets Manager. |
+| `YTMUSIC_PYTHON`          |          No | `python3`                      | Intérprete que tiene instalado `ytmusicapi`.                                           |
+| `YTMUSIC_API_URL`         |          No | Sin configurar                 | URL HTTPS `/api` de un servicio de catálogo separado.                                  |
+| `YTMUSIC_API_TOKEN`       |          No | Sin configurar                 | Secreto compartido de al menos 32 caracteres; requerido junto a `YTMUSIC_API_URL`.     |
+| `MAX_PLAYLISTS_PER_OWNER` |          No | `50`                           | Tope por cookie de propietario.                                                        |
+| `MAX_TRACKS_PER_PLAYLIST` |          No | `500`                          | Tope por playlist.                                                                     |
+| `BODY_LIMIT_BYTES`        |          No | `16384`                        | Tamaño máximo del JSON, limitado a 16 KiB.                                             |
+| `RATE_LIMIT_MAX`          |          No | `120`                          | Peticiones por minuto e IP; las búsquedas usan 20 por minuto.                          |
+| `TEST_DATABASE_URL`       |          No | Sin configurar                 | Base aislada para pruebas PostgreSQL.                                                  |
+| `JAMENDO_CLIENT_ID`       |          No | Sin configurar                 | Solo permite reproducir registros de Jamendo guardados por una versión anterior.       |
 
 `.env.example` solo sirve para desarrollo local. No pongas secretos reales en Git ni en capturas.
 
-En Vercel, configura `YTMUSIC_API_URL` y `YTMUSIC_API_TOKEN` juntos para que Fastify consulte la función Python. Si no están definidos, los entornos locales y Docker ejecutan el adaptador Python local.
+Para Aurora, configura `PGHOST`, `PGDATABASE`, `PGUSER` y `AWS_REGION` juntos; el rol de la tarea ECS obtiene permisos `rds-db:connect` y el SDK genera tokens temporales. En desarrollo local y otros proveedores PostgreSQL puedes usar `DATABASE_URL`. `YTMUSIC_API_URL` y `YTMUSIC_API_TOKEN` se configuran juntos solo si separas el catálogo en otro servicio; si faltan, el adaptador Python local se usa dentro del contenedor.
 
 ## Comprobaciones y pruebas
 
@@ -116,36 +121,25 @@ curl -i -c /tmp/reproductor-cookies.txt \
   http://localhost:3000/api/playlists
 ```
 
-## Despliegue en Render
+## Despliegue en AWS y Vercel
 
-1. Sube este repositorio a un Git remoto y conéctalo en Render.
-2. Crea un **Blueprint** usando `render.yaml`. Define un servicio Docker, PostgreSQL, la ruta `/api/health` y un `COOKIE_SECRET` generado por Render.
-3. Espera el despliegue. Copia la URL `onrender.com` del servicio y reemplaza `<pendiente>` arriba.
-4. Si conservas datos a largo plazo, usa un plan de PostgreSQL con persistencia permanente antes de guardar datos importantes.
+La API y la búsqueda de catálogo se ejecutan juntas en el contenedor Fastify: la imagen instala Python y `ytmusicapi`, aplica las migraciones al arrancar y sirve `web/dist` en despliegues autocontenidos. En producción, Vercel sirve únicamente el frontend y reescribe `/api/*` al servicio HTTPS de ECS Express Mode.
 
-El contenedor instala Python y las dependencias fijadas en `server/requirements.txt`, además de compilar las tres áreas. Render entrega `PORT`; en local se publica el puerto 3000. El servidor corre como usuario `node` y ejecuta las migraciones al arrancar.
+### API y PostgreSQL en AWS
 
-Render ofrece planes gratuitos que pueden suspender instancias web inactivas y caducar bases de datos gratuitas. Elige una base persistente antes de ofrecer almacenamiento duradero. Consulta los [límites gratuitos de Render](https://render.com/docs/free) y la [referencia de `render.yaml`](https://render.com/docs/blueprint-spec).
+- CodeBuild compila el repositorio usando `buildspec.aws.yml` y publica la imagen en ECR `reproductor-estructuras-datos-api` con una etiqueta derivada del commit.
+- ECS Express Mode sirve la imagen por HTTPS en `https://reproductor-estructuras-datos-api.ecs.us-east-1.on.aws`. El contenedor escucha en `3000`; el healthcheck es `/api/health`.
+- Aurora PostgreSQL Express usa IAM para autenticar conexiones y TLS para cifrar la red. El clúster crea primero la base administrada `postgres`; después se crea `reproductor`, porque Express no admite `DatabaseName` al crear el clúster.
+- La identidad de tarea de ECS recibe `rds-db:connect` para el usuario PostgreSQL de la app. `COOKIE_SECRET` se inyecta desde AWS Secrets Manager; no se guarda en Git ni en Vercel.
+- El plan Free de la cuenta AWS limita la retención configurada a 1 día. La aplicación sigue guardando datos en Aurora; este valor acorta la ventana de recuperación de backups.
 
-## Despliegue en Vercel
+### Frontend en Vercel
 
-La aplicación usa `ytmusicapi`, una biblioteca Python. Vercel ejecuta Fastify y Python en runtimes separados, por lo que este repositorio prepara dos proyectos Vercel conectados al mismo repo. El endpoint Python requiere un token compartido y solo acepta solicitudes de búsqueda firmadas. La función Python de Vercel está actualmente en beta; revisa su disponibilidad en la cuenta antes de desplegar.
+El proyecto Vercel conectado a `JhonRamirez22/REPRODUCTOR-MUSICA` debe usar el directorio raíz `.`. El archivo `vercel.json` selecciona Vite, compila con `npm run build:vercel`, publica `web/dist` y reescribe `/api/:path*` hacia ECS. Las respuestas de la API llevan `Cache-Control: no-store` porque incluyen playlists privadas asociadas a cookies.
 
-1. Crea o elige una base PostgreSQL persistente (por ejemplo, Neon) y genera dos secretos aleatorios de al menos 32 caracteres: uno para `COOKIE_SECRET` y otro para `YTMUSIC_API_TOKEN`. Conserva ambos fuera del repositorio.
-2. En Vercel, importa `JhonRamirez22/REPRODUCTOR-MUSICA` como el proyecto del catálogo. Define **Root Directory** como `ytmusic-function`, deja que detecte Python y agrega `YTMUSIC_API_TOKEN` con el secreto generado. Despliega y copia el dominio asignado. La URL de la función es `https://<dominio-del-catalogo>/api`.
-3. Importa de nuevo el mismo repositorio como la aplicación principal. Define **Root Directory** como `.` y conserva el preset Fastify que declara `vercel.json`. Configura estas variables para Production y Preview:
+No hacen falta variables de entorno para la API en Vercel: el proxy mantiene las peticiones y cookies bajo el dominio visible del frontend. Configura el mismo origen para Production y Preview solo cuando exista también un backend para ese entorno. Comprueba `https://<dominio-principal>/api/health`; después reemplaza `<pendiente de verificar>` por el dominio público confirmado.
 
-   | Variable            | Valor                                                                                    |
-   | ------------------- | ---------------------------------------------------------------------------------------- |
-   | `NODE_ENV`          | `production`                                                                             |
-   | `DATABASE_URL`      | URL PostgreSQL persistente; usa la conexión agrupada/pooler que recomienda tu proveedor. |
-   | `COOKIE_SECRET`     | Secreto aleatorio distinto, de al menos 32 caracteres.                                   |
-   | `YTMUSIC_API_URL`   | `https://<dominio-del-catalogo>/api`                                                     |
-   | `YTMUSIC_API_TOKEN` | El mismo secreto cargado en el proyecto del catálogo.                                    |
-
-4. Despliega la aplicación principal. `vercel.json` ejecuta `npm run build:vercel`; el script incorpora los archivos web y las migraciones al bundle que importa la función Fastify, que los sirve junto con la API. La primera instancia aplica las migraciones con el bloqueo PostgreSQL existente. Comprueba `https://<dominio-principal>/api/health` y luego reemplaza `<pendiente>` por la URL pública en este README.
-
-Los dos proyectos deben usar la misma rama de GitHub. Un push genera los despliegues automáticos configurados en Vercel. Vercel no autentica una cuenta ni crea la base de datos por ti; completa esos pasos en el panel antes del primer despliegue. Referencias: [Fastify en Vercel](https://vercel.com/docs/frameworks/backend/fastify), [runtime Python de Vercel](https://vercel.com/docs/functions/runtimes/python) y [configuración de `vercel.json`](https://vercel.com/docs/project-configuration/vercel-json).
+La reescritura externa está documentada en [Rewrites de Vercel](https://vercel.com/docs/routing/rewrites) y la configuración de compilación y salida en [`vercel.json`](https://vercel.com/docs/project-configuration/vercel-json). La guía de [ECS Express Mode](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-getting-started.html) documenta el endpoint HTTPS administrado.
 
 ### Construir con Docker
 

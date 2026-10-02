@@ -1,6 +1,9 @@
 FROM node:22-alpine AS build
 RUN apk add --no-cache python3 py3-pip ca-certificates curl
-RUN curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /etc/ssl/certs/aws-rds-global-bundle.pem
+RUN curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /etc/ssl/certs/aws-rds-global-bundle.pem \
+  && curl -fsSL https://www.amazontrust.com/repository/AmazonRootCA1.pem -o /tmp/amazon-root-ca-1.pem \
+  && cat /tmp/amazon-root-ca-1.pem >> /etc/ssl/certs/aws-rds-global-bundle.pem \
+  && rm /tmp/amazon-root-ca-1.pem
 RUN python3 -m venv /opt/ytmusic-venv
 COPY server/requirements.txt /tmp/server-requirements.txt
 RUN /opt/ytmusic-venv/bin/pip install --no-cache-dir -r /tmp/server-requirements.txt
