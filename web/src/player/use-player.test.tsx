@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { useRef } from 'react';
 import { act, render, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { EventEmitter, type PlayerEngine, type PlayerEngineFactory } from './engine.js';
 import type { LocalTrack, PlaybackTrack } from './local-track.js';
 import { usePlayer } from './use-player.js';
+
+beforeEach(() => {
+  window.localStorage.clear();
+});
 
 function makeTrack(id: string, title: string): Track {
   return {

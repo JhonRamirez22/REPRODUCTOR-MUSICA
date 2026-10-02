@@ -170,7 +170,7 @@ export class PlaylistService {
           track.licenseUrl,
         ],
       );
-      await this.persistOrder(client, list);
+      await this.persistOrder(client, list, playlistId);
       await this.incrementRevision(client, playlistId);
       return this.requirePlaylist(client, ownerId, playlistId);
     });
@@ -192,7 +192,7 @@ export class PlaylistService {
         trackId,
         playlistId,
       ]);
-      await this.persistOrder(client, list);
+      await this.persistOrder(client, list, playlistId);
       await this.incrementRevision(client, playlistId);
       return this.requirePlaylist(client, ownerId, playlistId);
     });
@@ -219,7 +219,7 @@ export class PlaylistService {
       }
       if (fromIndex === toIndex) return this.requirePlaylist(client, ownerId, playlistId);
       list.moveTo(trackId, toIndex);
-      await this.persistOrder(client, list);
+      await this.persistOrder(client, list, playlistId);
       await this.incrementRevision(client, playlistId);
       return this.requirePlaylist(client, ownerId, playlistId);
     });
@@ -268,11 +268,26 @@ export class PlaylistService {
     );
   }
 
-  private async persistOrder(client: PoolClient, list: DoublyLinkedList<Track>): Promise<void> {
-    let position = 0;
-    for (let node = list.head; node; node = node.next, position += 1) {
-      await client.query('UPDATE tracks SET position = $1 WHERE id = $2', [position, node.id]);
+  private async persistOrder(
+    client: PoolClient,
+    list: DoublyLinkedList<Track>,
+    playlistId: string,
+  ): Promise<void> {
+    const ids: string[] = [];
+    const positions: number[] = [];
+    for (let node = list.head, position = 0; node; node = node.next, position += 1) {
+      ids.push(node.id);
+      positions.push(position);
     }
+    if (ids.length === 0) return;
+
+    await client.query(
+      `UPDATE tracks AS track
+          SET position = position_update.position
+         FROM unnest($1::uuid[], $2::integer[]) AS position_update(id, position)
+        WHERE track.id = position_update.id AND track.playlist_id = $3`,
+      [ids, positions, playlistId],
+    );
   }
 
   private async incrementRevision(client: PoolClient, playlistId: string): Promise<void> {

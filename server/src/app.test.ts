@@ -156,4 +156,34 @@ describe('Fastify API', () => {
     expect(response.body).not.toContain('Python');
     expect(response.body).not.toContain('stack');
   });
+
+  it('uses the immediate proxy address for rate limits instead of a spoofed X-Forwarded-For value', async () => {
+    app = await buildApp({
+      config: loadConfig({
+        NODE_ENV: 'test',
+        DATABASE_URL: 'postgres://test:test@127.0.0.1:1/test',
+        COOKIE_SECRET: 'test-secret-that-is-at-least-thirty-two-bytes',
+        RATE_LIMIT_MAX: '1',
+      }),
+      pool,
+      catalog: new YtMusicService('python3', async () => ({ ready: true })),
+    });
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/api/catalog/status',
+      headers: { 'x-forwarded-for': '198.51.100.10, 203.0.113.7' },
+    });
+    const spoofed = await app.inject({
+      method: 'GET',
+      url: '/api/catalog/status',
+      headers: { 'x-forwarded-for': '198.51.100.11, 203.0.113.7' },
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(spoofed.statusCode).toBe(429);
+    expect(spoofed.json()).toMatchObject({
+      error: { code: 'rate_limit_exceeded' },
+    });
+  });
 });

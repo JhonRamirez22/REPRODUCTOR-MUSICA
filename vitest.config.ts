@@ -5,6 +5,8 @@ export default defineConfig({
     include: ['{shared,server,web}/src/**/*.test.{ts,tsx}'],
     environment: 'node',
     coverage: {
+      include: ['{shared,server,web}/src/**/*.{ts,tsx}'],
+      exclude: ['**/*.test.{ts,tsx}'],
       reporter: ['text', 'html'],
     },
   },

@@ -9,8 +9,13 @@ def search(query: str) -> list[dict[str, object]]:
     from ytmusicapi import YTMusic
 
     matches = YTMusic().search(query, filter="songs", limit=20)
+    if not isinstance(matches, list):
+        return []
+
     results: list[dict[str, object]] = []
     for item in matches:
+        if not isinstance(item, dict):
+            continue
         video_id = item.get("videoId")
         title = item.get("title")
         if not isinstance(video_id, str) or not VIDEO_ID.fullmatch(video_id):
@@ -18,13 +23,17 @@ def search(query: str) -> list[dict[str, object]]:
         if item.get("resultType") != "song" or not isinstance(title, str) or not title.strip():
             continue
 
-        artists = item.get("artists") or []
+        raw_artists = item.get("artists")
+        artists = raw_artists if isinstance(raw_artists, list) else []
         artist_names = [
-            artist.get("name")
+            artist["name"].strip()
             for artist in artists
-            if isinstance(artist, dict) and isinstance(artist.get("name"), str)
+            if isinstance(artist, dict)
+            and isinstance(artist.get("name"), str)
+            and artist["name"].strip()
         ]
-        thumbnails = item.get("thumbnails") or []
+        raw_thumbnails = item.get("thumbnails")
+        thumbnails = raw_thumbnails if isinstance(raw_thumbnails, list) else []
         thumbnail_url = None
         for thumbnail in reversed(thumbnails):
             if isinstance(thumbnail, dict) and isinstance(thumbnail.get("url"), str):
@@ -37,7 +46,11 @@ def search(query: str) -> list[dict[str, object]]:
                 "videoId": video_id,
                 "title": title.strip()[:200],
                 "artist": ", ".join(artist_names)[:200],
-                "durationSec": duration if isinstance(duration, int) and duration >= 0 else None,
+                "durationSec": (
+                    duration
+                    if isinstance(duration, int) and not isinstance(duration, bool) and duration >= 0
+                    else None
+                ),
                 "thumbnailUrl": thumbnail_url,
             }
         )

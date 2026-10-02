@@ -46,7 +46,7 @@ export async function buildApp({
     instance ??
     Fastify({
       logger: config.NODE_ENV !== 'test',
-      trustProxy: true,
+      trustProxy: (_address, hop) => hop === 0,
       bodyLimit: config.BODY_LIMIT_BYTES,
     });
   const playlistService = new PlaylistService(pool, config);
@@ -91,6 +91,14 @@ export async function buildApp({
           },
         });
       }
+      if (statusCode === 429) {
+        return reply.code(429).send({
+          error: {
+            code: 'rate_limit_exceeded',
+            message: 'Demasiadas solicitudes. Espera un momento.',
+          },
+        });
+      }
     }
     request.log.error({ err: error }, 'Request failed');
     return reply.code(500).send({
@@ -128,9 +136,6 @@ export async function buildApp({
   await app.register(rateLimit, {
     max: config.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
-    errorResponseBuilder: () => ({
-      error: { code: 'rate_limit_exceeded', message: 'Demasiadas solicitudes. Espera un momento.' },
-    }),
   });
   await app.register(healthRoutes, { prefix: '/api', pool });
   await app.register(authRoutes, { prefix: '/api', service: authService, config });
