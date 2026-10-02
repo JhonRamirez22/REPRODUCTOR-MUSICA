@@ -128,7 +128,7 @@ La API y la búsqueda de catálogo se ejecutan juntas en el contenedor Fastify: 
 ### API y PostgreSQL en AWS
 
 - CodeBuild compila el repositorio usando `buildspec.aws.yml` y publica la imagen en ECR `reproductor-estructuras-datos-api` con una etiqueta derivada del commit.
-- ECS Express Mode sirve la imagen por HTTPS en `https://reproductor-estructuras-datos-api.ecs.us-east-1.on.aws`. El contenedor escucha en `3000`; el healthcheck es `/api/health`.
+- ECS Express Mode sirve la imagen por HTTPS en `https://re-06c0b12191414b5aa42f2fbea8f52b6a.ecs.us-east-1.on.aws`. El contenedor escucha en `3000`; el healthcheck es `/api/health`.
 - Aurora PostgreSQL Express usa IAM para autenticar conexiones y TLS para cifrar la red. El clúster crea primero la base administrada `postgres`; después se crea `reproductor`, porque Express no admite `DatabaseName` al crear el clúster.
 - La identidad de tarea de ECS recibe `rds-db:connect` para el usuario PostgreSQL de la app. `COOKIE_SECRET` se inyecta desde AWS Secrets Manager; no se guarda en Git ni en Vercel.
 - El plan Free de la cuenta AWS limita la retención configurada a 1 día. La aplicación sigue guardando datos en Aurora; este valor acorta la ventana de recuperación de backups.
