@@ -170,6 +170,22 @@ describe('usePlayer', () => {
     expect(result.current.currentTrack?.id).toBe(second.id);
   });
 
+  it('plays the next queue item when next is pressed manually', async () => {
+    const first = makeTrack('00000000-0000-4000-8000-000000000040', 'Primera');
+    const second = makeTrack('00000000-0000-4000-8000-000000000041', 'Segunda');
+    const tracks = [first, second];
+    const engine = new FakePlayerEngine();
+    const factory: PlayerEngineFactory = () => engine;
+    const { result } = renderHook(() => usePlayer(tracks, undefined, factory));
+
+    await waitFor(() => expect(result.current.currentTrack?.id).toBe(first.id));
+    act(() => result.current.next());
+
+    await waitFor(() => expect(engine.playCount).toBe(1));
+    expect(engine.loadedTrack?.id).toBe(second.id);
+    expect(result.current.currentTrack?.id).toBe(second.id);
+  });
+
   it('restarts the current track when previous is pressed near the start of the queue head', async () => {
     const first = makeTrack('00000000-0000-4000-8000-000000000020', 'Primera');
     const tracks = [first];

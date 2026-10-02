@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Track } from '@reproductor/shared';
 import { usePlayer } from '../player/use-player.js';
 import { NowPlaying } from './NowPlaying.js';
@@ -24,15 +24,25 @@ describe('NowPlaying', () => {
       licenseUrl: null,
       available: false,
     };
-    const tracks = [track];
+    const nextTrack: Track = {
+      ...track,
+      id: '00000000-0000-4000-8000-000000000026',
+      provider: 'audio',
+      sourceId: 'https://cdn.example.org/siguiente.mp3',
+      sourceUrl: 'https://cdn.example.org/siguiente.mp3',
+      title: 'Siguiente disponible',
+      available: true,
+    };
+    const tracks = [track, nextTrack];
     const { result } = renderHookForPlayer(tracks);
     await waitFor(() => expect(result.current.currentTrack?.id).toBe(track.id));
+    const onNext = vi.fn();
 
     render(
       <NowPlaying
         playlist={null}
-        tracks={[track]}
-        player={{ ...result.current, unavailableIds: new Set([track.id]) }}
+        tracks={tracks}
+        player={{ ...result.current, next: onNext, unavailableIds: new Set([track.id]) }}
         playerContainerRef={{ current: null }}
         mobileExpanded={false}
         loading={false}
@@ -46,9 +56,10 @@ describe('NowPlaying', () => {
       />,
     );
 
-    expect((screen.getByRole('button', { name: 'Siguiente' }) as HTMLButtonElement).disabled).toBe(
-      false,
-    );
+    const nextButton = screen.getByRole('button', { name: 'Siguiente' }) as HTMLButtonElement;
+    expect(nextButton.disabled).toBe(false);
+    fireEvent.click(nextButton);
+    expect(onNext).toHaveBeenCalledOnce();
     expect((screen.getByRole('button', { name: 'Reproducir' }) as HTMLButtonElement).disabled).toBe(
       true,
     );
