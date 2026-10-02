@@ -2,7 +2,7 @@
 
 Aplicación web en español para crear playlists persistentes y buscar canciones en YouTube Music mediante [`ytmusicapi`](https://github.com/sigma67/ytmusicapi). Una lista doblemente enlazada implementada a mano conserva el orden en el servidor y dirige la navegación en el cliente. La app guarda referencias y metadatos; nunca sube ni extrae archivos de audio.
 
-**URL de producción: `<pendiente de verificar>`**. El frontend se publica como sitio estático en Vercel; la API corre en ECS Express Mode y PostgreSQL en Aurora Express con IAM y TLS.
+**URL de producción: <https://reproductor-musica-bice.vercel.app>**. El frontend se publica como sitio estático en Vercel; la API corre en ECS Express Mode y PostgreSQL en Aurora Express con IAM y TLS.
 
 ## Funciones
 
@@ -52,7 +52,7 @@ El servidor publica `web/dist`; las rutas que no comienzan por `/api/` devuelven
 | Variable                  |   Requerida | Predeterminado                 | Descripción                                                                            |
 | ------------------------- | ----------: | ------------------------------ | -------------------------------------------------------------------------------------- |
 | `NODE_ENV`                |          No | `development`                  | `development`, `test` o `production`.                                                  |
-| `PORT`                    |          No | `3000`                         | Puerto HTTP; Render inyecta el suyo.                                                   |
+| `PORT`                    |          No | `3000`                         | Puerto HTTP; ECS Express Mode lo configura en producción.                              |
 | `DATABASE_URL`            | Condicional | Base `reproductor` del Compose | Cadena PostgreSQL local o de otros proveedores; no se combina con autenticación IAM.   |
 | `PGHOST`                  | Condicional | Sin configurar                 | Endpoint Aurora para autenticación IAM.                                                |
 | `PGPORT`                  |          No | `5432`                         | Puerto PostgreSQL del clúster.                                                         |
@@ -128,7 +128,7 @@ La API y la búsqueda de catálogo se ejecutan juntas en el contenedor Fastify: 
 ### API y PostgreSQL en AWS
 
 - CodeBuild compila el repositorio usando `buildspec.aws.yml` y publica la imagen en ECR `reproductor-estructuras-datos-api` con una etiqueta derivada del commit.
-- ECS Express Mode sirve la imagen por HTTPS en `https://re-06c0b12191414b5aa42f2fbea8f52b6a.ecs.us-east-1.on.aws`. El contenedor escucha en `3000`; el healthcheck es `/api/health`.
+- ECS Express Mode sirve la imagen por HTTPS en `https://re-06c0b12191414b5aa42f2fbea8f52b6a.ecs.us-east-1.on.aws`. El contenedor escucha en `3000`; el healthcheck es `/api/health`. Las tareas usan subredes públicas para alcanzar el Internet Access Gateway de Aurora y YouTube Music; su grupo de seguridad solo acepta conexiones entrantes del balanceador.
 - Aurora PostgreSQL Express usa IAM para autenticar conexiones y TLS para cifrar la red. El clúster crea primero la base administrada `postgres`; después se crea `reproductor`, porque Express no admite `DatabaseName` al crear el clúster.
 - La identidad de tarea de ECS recibe `rds-db:connect` para el usuario PostgreSQL de la app. `COOKIE_SECRET` se inyecta desde AWS Secrets Manager; no se guarda en Git ni en Vercel.
 - El plan Free de la cuenta AWS limita la retención configurada a 1 día. La aplicación sigue guardando datos en Aurora; este valor acorta la ventana de recuperación de backups.
@@ -137,7 +137,7 @@ La API y la búsqueda de catálogo se ejecutan juntas en el contenedor Fastify: 
 
 El proyecto Vercel conectado a `JhonRamirez22/REPRODUCTOR-MUSICA` debe usar el directorio raíz `.`. El archivo `vercel.json` selecciona Vite, compila con `npm run build:vercel`, publica `web/dist` y reescribe `/api/:path*` hacia ECS. Las respuestas de la API llevan `Cache-Control: no-store` porque incluyen playlists privadas asociadas a cookies.
 
-No hacen falta variables de entorno para la API en Vercel: el proxy mantiene las peticiones y cookies bajo el dominio visible del frontend. Configura el mismo origen para Production y Preview solo cuando exista también un backend para ese entorno. Comprueba `https://<dominio-principal>/api/health`; después reemplaza `<pendiente de verificar>` por el dominio público confirmado.
+No hacen falta variables de entorno para la API en Vercel: el proxy mantiene las peticiones y cookies bajo el dominio visible del frontend. Configura el mismo origen para Production y Preview solo cuando exista también un backend para ese entorno. La ruta pública de salud es <https://reproductor-musica-bice.vercel.app/api/health>.
 
 La reescritura externa está documentada en [Rewrites de Vercel](https://vercel.com/docs/routing/rewrites) y la configuración de compilación y salida en [`vercel.json`](https://vercel.com/docs/project-configuration/vercel-json). La guía de [ECS Express Mode](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/express-service-getting-started.html) documenta el endpoint HTTPS administrado.
 
